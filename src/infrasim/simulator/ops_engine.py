@@ -293,8 +293,10 @@ class SLOTracker:
             if s.current_health == HealthStatus.DOWN
         )
 
-        # Availability: fraction of components that are not DOWN
-        availability = ((total - down) / total * 100.0) if total > 0 else 100.0
+        # Availability: DOWN = 0%, OVERLOADED = 80% (20% error rate),
+        # DEGRADED/HEALTHY = 100%.
+        effective_up = total - down - (overloaded * 0.2)
+        availability = (effective_up / total * 100.0) if total > 0 else 100.0
 
         # Max utilization across all components
         max_util = max(
