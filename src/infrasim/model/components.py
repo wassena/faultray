@@ -45,6 +45,66 @@ class Capacity(BaseModel):
     retry_multiplier: float = 3.0
 
 
+class AutoScalingConfig(BaseModel):
+    """HPA/KEDA autoscaling configuration."""
+
+    enabled: bool = False
+    min_replicas: int = 1
+    max_replicas: int = 1
+    scale_up_threshold: float = 70.0  # CPU% to trigger scale up
+    scale_down_threshold: float = 30.0  # CPU% to trigger scale down
+    scale_up_delay_seconds: int = 15  # time to provision new replica
+    scale_down_delay_seconds: int = 300  # cooldown before scale down
+    scale_up_step: int = 2  # replicas to add per step
+
+
+class FailoverConfig(BaseModel):
+    """Failover/promotion configuration."""
+
+    enabled: bool = False
+    promotion_time_seconds: int = 30  # time for replica to promote to primary
+    health_check_interval_seconds: int = 10
+    failover_threshold: int = 3  # consecutive failures before failover
+
+
+class CircuitBreakerConfig(BaseModel):
+    """Circuit breaker configuration for a dependency edge."""
+
+    enabled: bool = False
+    failure_threshold: int = 5  # consecutive failures to trip OPEN
+    recovery_timeout_seconds: float = 60.0  # stay OPEN before HALF_OPEN
+    half_open_max_requests: int = 3  # requests allowed in HALF_OPEN
+    success_threshold: int = 2  # successes in HALF_OPEN to close
+
+
+class RetryStrategy(BaseModel):
+    """Adaptive retry with exponential backoff + jitter."""
+
+    enabled: bool = False
+    max_retries: int = 3
+    initial_delay_ms: float = 100.0
+    max_delay_ms: float = 30000.0
+    multiplier: float = 2.0  # delay = initial_delay * multiplier^attempt
+    jitter: bool = True  # add random jitter to prevent thundering herd
+    retry_budget_per_second: float = 0.0  # 0 = unlimited; >0 = max retries/sec
+
+
+class CacheWarmingConfig(BaseModel):
+    """Cache warming behaviour after recovery from DOWN."""
+
+    enabled: bool = False
+    initial_hit_ratio: float = 0.0  # hit ratio right after recovery
+    warm_duration_seconds: int = 300  # time to reach full hit ratio
+    warming_curve: str = "linear"  # linear, exponential
+
+
+class SingleflightConfig(BaseModel):
+    """Singleflight / request coalescing to deduplicate concurrent requests."""
+
+    enabled: bool = False
+    coalesce_ratio: float = 0.8  # fraction of duplicate requests coalesced (0-1)
+
+
 class HealthStatus(str, Enum):
     HEALTHY = "healthy"
     DEGRADED = "degraded"
@@ -64,6 +124,10 @@ class Component(BaseModel):
     metrics: ResourceMetrics = Field(default_factory=ResourceMetrics)
     capacity: Capacity = Field(default_factory=Capacity)
     health: HealthStatus = HealthStatus.HEALTHY
+    autoscaling: AutoScalingConfig = Field(default_factory=AutoScalingConfig)
+    failover: FailoverConfig = Field(default_factory=FailoverConfig)
+    cache_warming: CacheWarmingConfig = Field(default_factory=CacheWarmingConfig)
+    singleflight: SingleflightConfig = Field(default_factory=SingleflightConfig)
     parameters: dict[str, float | int | str] = Field(default_factory=dict)
     tags: list[str] = Field(default_factory=list)
 
@@ -82,6 +146,12 @@ class Component(BaseModel):
             factors.append(self.metrics.disk_percent)
         return max(factors) if factors else 0.0
 
+    def effective_capacity_at_replicas(self, replica_count: int) -> float:
+        """Calculate effective capacity multiplier for given replica count vs base."""
+        if self.replicas <= 0:
+            return 0.0
+        return replica_count / self.replicas
+
 
 class Dependency(BaseModel):
     """A dependency between two components."""
@@ -93,3 +163,5 @@ class Dependency(BaseModel):
     port: int = 0
     latency_ms: float = 0.0
     weight: float = 1.0  # how critical this dependency is (0.0-1.0)
+    circuit_breaker: CircuitBreakerConfig = Field(default_factory=CircuitBreakerConfig)
+    retry_strategy: RetryStrategy = Field(default_factory=RetryStrategy)

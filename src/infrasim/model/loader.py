@@ -7,11 +7,17 @@ from pathlib import Path
 import yaml
 
 from infrasim.model.components import (
+    AutoScalingConfig,
+    CacheWarmingConfig,
     Capacity,
+    CircuitBreakerConfig,
     Component,
     ComponentType,
     Dependency,
+    FailoverConfig,
     ResourceMetrics,
+    RetryStrategy,
+    SingleflightConfig,
 )
 from infrasim.model.graph import InfraGraph
 
@@ -70,6 +76,18 @@ def load_yaml(path: Path) -> InfraGraph:
         # Build optional sub-models
         metrics = ResourceMetrics(**entry["metrics"]) if "metrics" in entry else ResourceMetrics()
         capacity = Capacity(**entry["capacity"]) if "capacity" in entry else Capacity()
+        autoscaling = (
+            AutoScalingConfig(**entry["autoscaling"]) if "autoscaling" in entry else AutoScalingConfig()
+        )
+        failover = (
+            FailoverConfig(**entry["failover"]) if "failover" in entry else FailoverConfig()
+        )
+        cache_warming = (
+            CacheWarmingConfig(**entry["cache_warming"]) if "cache_warming" in entry else CacheWarmingConfig()
+        )
+        singleflight = (
+            SingleflightConfig(**entry["singleflight"]) if "singleflight" in entry else SingleflightConfig()
+        )
 
         component = Component(
             id=comp_id,
@@ -80,6 +98,10 @@ def load_yaml(path: Path) -> InfraGraph:
             replicas=entry.get("replicas", 1),
             metrics=metrics,
             capacity=capacity,
+            autoscaling=autoscaling,
+            failover=failover,
+            cache_warming=cache_warming,
+            singleflight=singleflight,
             parameters=entry.get("parameters", {}),
             tags=entry.get("tags", []),
         )
@@ -110,6 +132,13 @@ def load_yaml(path: Path) -> InfraGraph:
                 f"Dependency entry {idx}: target '{target_id}' does not match any component id"
             )
 
+        circuit_breaker = (
+            CircuitBreakerConfig(**entry["circuit_breaker"]) if "circuit_breaker" in entry else CircuitBreakerConfig()
+        )
+        retry_strategy = (
+            RetryStrategy(**entry["retry_strategy"]) if "retry_strategy" in entry else RetryStrategy()
+        )
+
         dep = Dependency(
             source_id=source_id,
             target_id=target_id,
@@ -118,6 +147,8 @@ def load_yaml(path: Path) -> InfraGraph:
             port=entry.get("port", 0),
             latency_ms=entry.get("latency_ms", 0.0),
             weight=entry.get("weight", 1.0),
+            circuit_breaker=circuit_breaker,
+            retry_strategy=retry_strategy,
         )
         graph.add_dependency(dep)
 

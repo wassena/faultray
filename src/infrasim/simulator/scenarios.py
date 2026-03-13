@@ -4,8 +4,12 @@ from __future__ import annotations
 
 from enum import Enum
 from itertools import combinations
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
+
+if TYPE_CHECKING:
+    from infrasim.simulator.traffic import TrafficPattern
 
 
 class FaultType(str, Enum):
@@ -37,6 +41,18 @@ class Scenario(BaseModel):
     description: str
     faults: list[Fault]
     traffic_multiplier: float = 1.0  # 1.0 = normal, 2.0 = double traffic
+
+
+class DynamicScenario(BaseModel):
+    """A chaos scenario with time-varying traffic patterns."""
+
+    id: str
+    name: str
+    description: str
+    faults: list[Fault]
+    traffic_pattern: TrafficPattern | None = None
+    duration_seconds: int = 300
+    time_step_seconds: int = 5
 
 
 def _categorize(components: dict | None, component_ids: list[str]) -> dict[str, list[str]]:
@@ -570,6 +586,228 @@ def generate_default_scenarios(
             faults=[Fault(target_component_id=c, fault_type=FaultType.MEMORY_EXHAUSTION,
                           parameters={"cause": "cache_pressure"}) for c in cache],
             traffic_multiplier=10.0,
+        ))
+
+    return scenarios
+
+
+def generate_dynamic_scenarios(
+    component_ids: list[str],
+    components: dict | None = None,
+) -> list[DynamicScenario]:
+    """Generate dynamic chaos scenarios with time-varying traffic patterns.
+
+    Unlike ``generate_default_scenarios`` which uses static traffic multipliers,
+    these scenarios pair faults with realistic ``TrafficPattern`` objects that
+    produce time-varying load curves (DDoS ramps, flash crowds, diurnal cycles,
+    etc.).  They are intended for use with ``DynamicSimulationEngine``.
+    """
+    from infrasim.simulator.traffic import (
+        create_ddos_volumetric,
+        create_ddos_slowloris,
+        create_flash_crowd,
+        create_viral_event,
+        create_diurnal,
+        TrafficPattern,
+        TrafficPatternType,
+    )
+
+    scenarios: list[DynamicScenario] = []
+    cats = _categorize(components, component_ids)
+
+    db = cats["databases"]
+    cache = cats["caches"]
+    app = cats["app_servers"] + cats["web_servers"]
+    lb = cats["load_balancers"]
+
+    # =========================================================================
+    # 1. DDoS Volumetric — 10x peak, 300s, all components
+    # =========================================================================
+    scenarios.append(DynamicScenario(
+        id="dynamic-ddos-volumetric",
+        name="DDoS Volumetric (dynamic)",
+        description=(
+            "Volumetric DDoS attack: traffic ramps to 10x in 10s then sustains "
+            "with jitter.  Tests auto-scaling triggers and rate-limiting."
+        ),
+        faults=[],
+        traffic_pattern=create_ddos_volumetric(peak=10.0, duration=300),
+        duration_seconds=300,
+    ))
+
+    # =========================================================================
+    # 2. DDoS Slowloris — 5x peak, 300s, targeting app servers + LBs
+    # =========================================================================
+    slowloris_targets = app + lb if (app or lb) else component_ids
+    slowloris_pattern = create_ddos_slowloris(peak=5.0, duration=300)
+    slowloris_pattern = slowloris_pattern.model_copy(
+        update={"affected_components": slowloris_targets},
+    )
+    scenarios.append(DynamicScenario(
+        id="dynamic-ddos-slowloris",
+        name="DDoS Slowloris (dynamic)",
+        description=(
+            "Slowloris attack: connections climb linearly to 5x over 300s, "
+            "targeting app servers and load balancers.  Exhausts connection pools."
+        ),
+        faults=[],
+        traffic_pattern=slowloris_pattern,
+        duration_seconds=300,
+    ))
+
+    # =========================================================================
+    # 3. Flash Crowd — 8x peak, 30s ramp, 300s (viral tweet scenario)
+    # =========================================================================
+    scenarios.append(DynamicScenario(
+        id="dynamic-flash-crowd",
+        name="Flash Crowd: viral tweet (dynamic)",
+        description=(
+            "Viral tweet drives exponential traffic ramp to 8x in 30s, then "
+            "slow linear decay.  Tests burst absorption and queue back-pressure."
+        ),
+        faults=[],
+        traffic_pattern=create_flash_crowd(peak=8.0, ramp=30, duration=300),
+        duration_seconds=300,
+    ))
+
+    # =========================================================================
+    # 4. Viral Event + DB failure — flash crowd + primary DB down
+    # =========================================================================
+    if db:
+        scenarios.append(DynamicScenario(
+            id="dynamic-viral-db-failure",
+            name="Viral event + DB failure (dynamic)",
+            description=(
+                "Viral event drives 15x traffic surge while the primary database "
+                "goes down.  Tests failover under extreme read/write pressure."
+            ),
+            faults=[Fault(
+                target_component_id=db[0],
+                fault_type=FaultType.COMPONENT_DOWN,
+            )],
+            traffic_pattern=create_viral_event(peak=15.0, duration=300),
+            duration_seconds=300,
+        ))
+
+    # =========================================================================
+    # 5. Diurnal cycle with fault — diurnal 3x + cache failure mid-cycle
+    # =========================================================================
+    if cache:
+        scenarios.append(DynamicScenario(
+            id="dynamic-diurnal-cache-failure",
+            name="Diurnal cycle + cache failure (dynamic)",
+            description=(
+                "Normal diurnal traffic (3x peak at midpoint) combined with "
+                "cache failure mid-cycle.  Simulates a cache node dying during "
+                "peak business hours."
+            ),
+            faults=[Fault(
+                target_component_id=cache[0],
+                fault_type=FaultType.COMPONENT_DOWN,
+            )],
+            traffic_pattern=create_diurnal(peak=3.0, duration=300),
+            duration_seconds=300,
+        ))
+
+    # =========================================================================
+    # 6. Spike during deployment — spike traffic + app server down
+    # =========================================================================
+    if app:
+        spike_pattern = TrafficPattern(
+            pattern_type=TrafficPatternType.SPIKE,
+            peak_multiplier=5.0,
+            duration_seconds=300,
+            ramp_seconds=60,
+            sustain_seconds=120,
+            description="Spike: instant 5x at t=60, sustain 120s",
+        )
+        scenarios.append(DynamicScenario(
+            id="dynamic-spike-during-deploy",
+            name="Spike during deployment (dynamic)",
+            description=(
+                "Traffic spikes to 5x at t=60 and sustains for 120s while an "
+                "app server is down due to a bad deployment.  Tests graceful "
+                "degradation with reduced capacity."
+            ),
+            faults=[Fault(
+                target_component_id=app[0],
+                fault_type=FaultType.COMPONENT_DOWN,
+                parameters={"cause": "bad_deployment"},
+            )],
+            traffic_pattern=spike_pattern,
+            duration_seconds=300,
+        ))
+
+    # =========================================================================
+    # 7. DDoS + network partition — volumetric DDoS + network partition
+    # =========================================================================
+    if component_ids:
+        key_component = (db[0] if db else (app[0] if app else component_ids[0]))
+        scenarios.append(DynamicScenario(
+            id="dynamic-ddos-net-partition",
+            name="DDoS + network partition (dynamic)",
+            description=(
+                f"Volumetric DDoS (10x) coincides with a network partition "
+                f"isolating {key_component}.  Tests resilience when both external "
+                f"pressure and internal connectivity fail simultaneously."
+            ),
+            faults=[Fault(
+                target_component_id=key_component,
+                fault_type=FaultType.NETWORK_PARTITION,
+            )],
+            traffic_pattern=create_ddos_volumetric(peak=10.0, duration=300),
+            duration_seconds=300,
+        ))
+
+    # =========================================================================
+    # 8. Sustained high load — wave 5x peak, 30s period + memory exhaustion
+    # =========================================================================
+    if app:
+        wave_pattern = TrafficPattern(
+            pattern_type=TrafficPatternType.WAVE,
+            peak_multiplier=5.0,
+            duration_seconds=300,
+            wave_period_seconds=30,
+            description="Wave: 5x peak, 30s period",
+        )
+        scenarios.append(DynamicScenario(
+            id="dynamic-sustained-high-load",
+            name="Sustained high load + memory exhaustion (dynamic)",
+            description=(
+                "Oscillating traffic (5x peak, 30s period) combined with gradual "
+                "memory exhaustion on an app server.  Tests whether the system "
+                "survives prolonged pressure without OOM-killing critical processes."
+            ),
+            faults=[Fault(
+                target_component_id=app[0],
+                fault_type=FaultType.MEMORY_EXHAUSTION,
+                parameters={"cause": "gradual_leak"},
+            )],
+            traffic_pattern=wave_pattern,
+            duration_seconds=300,
+        ))
+
+    # =========================================================================
+    # 9. Flash crowd + cache stampede — flash crowd 15x + all caches down
+    # =========================================================================
+    if cache:
+        scenarios.append(DynamicScenario(
+            id="dynamic-flash-cache-stampede",
+            name="Flash crowd + cache stampede (dynamic)",
+            description=(
+                "Extreme flash crowd (15x) hits while all cache nodes are down.  "
+                "Every request falls through to the database tier, creating a "
+                "thundering-herd / cache-stampede scenario."
+            ),
+            faults=[
+                Fault(
+                    target_component_id=c,
+                    fault_type=FaultType.COMPONENT_DOWN,
+                )
+                for c in cache
+            ],
+            traffic_pattern=create_flash_crowd(peak=15.0, ramp=30, duration=300),
+            duration_seconds=300,
         ))
 
     return scenarios

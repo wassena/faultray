@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import deque
 from dataclasses import dataclass, field
 
 from infrasim.model.components import Component, ComponentType, HealthStatus
@@ -19,6 +20,7 @@ class CascadeEffect:
     reason: str
     estimated_time_seconds: int = 0
     metrics_impact: dict[str, float] = field(default_factory=dict)
+    latency_ms: float = 0.0  # accumulated latency through cascade chain
 
 
 @dataclass
@@ -136,6 +138,230 @@ class CascadeEngine:
         )
 
         for comp in self.graph.components.values():
+            current_util = comp.utilization()
+            projected_util = current_util * multiplier
+
+            if projected_util > 100:
+                chain.effects.append(CascadeEffect(
+                    component_id=comp.id,
+                    component_name=comp.name,
+                    health=HealthStatus.DOWN,
+                    reason=f"Capacity exceeded: {projected_util:.0f}% (max 100%)",
+                    metrics_impact={"utilization": projected_util},
+                ))
+            elif projected_util > 90:
+                chain.effects.append(CascadeEffect(
+                    component_id=comp.id,
+                    component_name=comp.name,
+                    health=HealthStatus.OVERLOADED,
+                    reason=f"Near capacity: {projected_util:.0f}%",
+                    metrics_impact={"utilization": projected_util},
+                ))
+            elif projected_util > 70:
+                chain.effects.append(CascadeEffect(
+                    component_id=comp.id,
+                    component_name=comp.name,
+                    health=HealthStatus.DEGRADED,
+                    reason=f"High utilization: {projected_util:.0f}%",
+                    metrics_impact={"utilization": projected_util},
+                ))
+
+        return chain
+
+    def simulate_latency_cascade(
+        self, slow_component_id: str, latency_multiplier: float = 10.0
+    ) -> CascadeChain:
+        """Simulate latency cascade from a slow component.
+
+        When a dependency becomes slow (not DOWN), callers that have timeouts
+        will wait for the timeout, then retry. This creates:
+        1. Accumulated latency through the dependency chain
+        2. Thread/connection pool exhaustion from waiting requests
+        3. Retry storms that amplify the load on the slow component
+        """
+        total = len(self.graph.components)
+        chain = CascadeChain(
+            trigger=f"Latency cascade from {slow_component_id} ({latency_multiplier}x slowdown)",
+            total_components=total,
+            likelihood=min(1.0, 0.4 + (latency_multiplier - 1.0) * 0.05),
+        )
+
+        slow_comp = self.graph.get_component(slow_component_id)
+        if not slow_comp:
+            return chain
+
+        # Calculate the slow component's inflated response latency.
+        # Use the edge latency average if available, otherwise fall back to
+        # a default based on timeout_seconds.
+        base_latency = slow_comp.capacity.timeout_seconds * 1000 * 0.1  # 10% of timeout as normal latency
+        slow_latency = base_latency * latency_multiplier
+
+        # The slow component itself is degraded
+        chain.effects.append(CascadeEffect(
+            component_id=slow_comp.id,
+            component_name=slow_comp.name,
+            health=HealthStatus.DEGRADED,
+            reason=f"Response time degraded: {slow_latency:.0f}ms "
+                   f"(normal: {base_latency:.0f}ms, {latency_multiplier}x slowdown)",
+            latency_ms=slow_latency,
+            metrics_impact={"latency_ms": slow_latency},
+        ))
+
+        # BFS propagation through dependents
+        visited: set[str] = {slow_component_id}
+        bfs_queue: deque[tuple[str, float]] = deque()  # (component_id, its_latency_ms)
+
+        # Seed the queue with components that depend on the slow component
+        for dep_comp in self.graph.get_dependents(slow_component_id):
+            if dep_comp.id not in visited:
+                edge = self.graph.get_dependency_edge(dep_comp.id, slow_component_id)
+                edge_latency = edge.latency_ms if edge else 0.0
+                accumulated = slow_latency + edge_latency
+
+                # Circuit breaker check on the dependency edge
+                if edge and edge.circuit_breaker.enabled:
+                    cb_timeout = dep_comp.capacity.timeout_seconds * 1000
+                    if cb_timeout > 0 and accumulated > cb_timeout:
+                        chain.effects.append(CascadeEffect(
+                            component_id=dep_comp.id,
+                            component_name=dep_comp.name,
+                            health=HealthStatus.DEGRADED,
+                            reason=(
+                                f"Circuit breaker TRIPPED on edge to {slow_component_id}: "
+                                f"latency {accumulated:.0f}ms > timeout {cb_timeout:.0f}ms, "
+                                f"cascade stopped"
+                            ),
+                            latency_ms=accumulated,
+                            metrics_impact={"latency_ms": accumulated},
+                        ))
+                        visited.add(dep_comp.id)
+                        continue
+
+                bfs_queue.append((dep_comp.id, accumulated))
+                visited.add(dep_comp.id)
+
+        while bfs_queue:
+            comp_id, accumulated_latency = bfs_queue.popleft()
+            comp = self.graph.get_component(comp_id)
+            if not comp:
+                continue
+
+            timeout_ms = comp.capacity.timeout_seconds * 1000
+            retry_mult = comp.capacity.retry_multiplier
+            pool_size = comp.capacity.connection_pool_size
+
+            # Determine health based on accumulated latency vs timeout
+            if timeout_ms > 0 and accumulated_latency > timeout_ms:
+                # Request exceeds timeout — component experiences timeouts
+                # Retry storm: each timed-out request is retried, amplifying load
+                base_connections = comp.metrics.network_connections
+
+                # Singleflight: reduce effective load by coalescing duplicate requests
+                if comp.singleflight.enabled:
+                    base_connections *= (1.0 - comp.singleflight.coalesce_ratio)
+
+                # Adaptive retry: check the dependency edge for retry strategy
+                # We look for any edge from this component to a downstream dep that
+                # triggered the latency. Use the first edge with retry_strategy for
+                # the adaptive calculation; otherwise fall back to the fixed multiplier.
+                deps_of_comp = self.graph.get_dependencies(comp_id)
+                adaptive_retry_edge = None
+                for dep_target in deps_of_comp:
+                    candidate_edge = self.graph.get_dependency_edge(comp_id, dep_target.id)
+                    if candidate_edge and candidate_edge.retry_strategy.enabled:
+                        adaptive_retry_edge = candidate_edge
+                        break
+
+                if adaptive_retry_edge:
+                    max_retries = adaptive_retry_edge.retry_strategy.max_retries
+                    effective_connections = base_connections * (1 + max_retries * 0.3)
+                else:
+                    effective_connections = base_connections * retry_mult
+
+                if pool_size > 0 and effective_connections > pool_size:
+                    # Connection pool exhaustion from waiting + retrying
+                    health = HealthStatus.DOWN
+                    reason = (
+                        f"Connection pool exhausted: {effective_connections:.0f} "
+                        f"effective connections > pool size {pool_size} "
+                        f"(latency {accumulated_latency:.0f}ms > timeout {timeout_ms:.0f}ms, "
+                        f"retry storm {retry_mult}x)"
+                    )
+                else:
+                    health = HealthStatus.DOWN
+                    reason = (
+                        f"Timeout: accumulated latency {accumulated_latency:.0f}ms "
+                        f"> timeout {timeout_ms:.0f}ms, retry storm expected ({retry_mult}x)"
+                    )
+            elif timeout_ms > 0 and accumulated_latency > timeout_ms * 0.8:
+                # Near-timeout — degraded performance
+                health = HealthStatus.DEGRADED
+                reason = (
+                    f"Near timeout: accumulated latency {accumulated_latency:.0f}ms "
+                    f"approaching timeout {timeout_ms:.0f}ms "
+                    f"({accumulated_latency / timeout_ms * 100:.0f}%)"
+                )
+            else:
+                # Latency is within tolerance — skip this component
+                continue
+
+            chain.effects.append(CascadeEffect(
+                component_id=comp.id,
+                component_name=comp.name,
+                health=health,
+                reason=reason,
+                latency_ms=accumulated_latency,
+                metrics_impact={"latency_ms": accumulated_latency},
+            ))
+
+            # Continue propagation if degraded or worse
+            if health in (HealthStatus.DOWN, HealthStatus.OVERLOADED, HealthStatus.DEGRADED):
+                for next_dep in self.graph.get_dependents(comp_id):
+                    if next_dep.id not in visited:
+                        edge = self.graph.get_dependency_edge(next_dep.id, comp_id)
+                        edge_latency = edge.latency_ms if edge else 0.0
+                        next_latency = accumulated_latency + edge_latency
+
+                        # Circuit breaker check on the dependency edge
+                        if edge and edge.circuit_breaker.enabled:
+                            cb_timeout = next_dep.capacity.timeout_seconds * 1000
+                            if cb_timeout > 0 and next_latency > cb_timeout:
+                                chain.effects.append(CascadeEffect(
+                                    component_id=next_dep.id,
+                                    component_name=next_dep.name,
+                                    health=HealthStatus.DEGRADED,
+                                    reason=(
+                                        f"Circuit breaker TRIPPED on edge to {comp_id}: "
+                                        f"latency {next_latency:.0f}ms > timeout {cb_timeout:.0f}ms, "
+                                        f"cascade stopped"
+                                    ),
+                                    latency_ms=next_latency,
+                                    metrics_impact={"latency_ms": next_latency},
+                                ))
+                                visited.add(next_dep.id)
+                                continue
+
+                        bfs_queue.append((next_dep.id, next_latency))
+                        visited.add(next_dep.id)
+
+        return chain
+
+    def simulate_traffic_spike_targeted(
+        self, multiplier: float, component_ids: list[str]
+    ) -> CascadeChain:
+        """Simulate traffic spike on specific components only."""
+        total = len(self.graph.components)
+        chain = CascadeChain(
+            trigger=f"Targeted traffic spike {multiplier}x on {len(component_ids)} component(s)",
+            total_components=total,
+            likelihood=min(1.0, 0.3 + (multiplier - 1.0) * 0.1),
+        )
+
+        for comp_id in component_ids:
+            comp = self.graph.get_component(comp_id)
+            if not comp:
+                continue
+
             current_util = comp.utilization()
             projected_util = current_util * multiplier
 
@@ -351,12 +577,25 @@ class CascadeEngine:
                 continue
 
             new_elapsed = elapsed_seconds + time_delta
+
+            # Calculate accumulated latency through the cascade chain
+            latency = 0.0
+            if cascade_health in (HealthStatus.DEGRADED, HealthStatus.OVERLOADED):
+                # Degraded/overloaded dependencies add latency
+                edge_latency = edge.latency_ms if edge.latency_ms > 0 else 0.0
+                multiplier = 3.0 if cascade_health == HealthStatus.OVERLOADED else 2.0
+                latency = edge_latency * multiplier
+            elif cascade_health == HealthStatus.DOWN:
+                # DOWN means full timeout wait
+                latency = dep_comp.capacity.timeout_seconds * 1000
+
             chain.effects.append(CascadeEffect(
                 component_id=dep_comp.id,
                 component_name=dep_comp.name,
                 health=cascade_health,
                 reason=reason,
                 estimated_time_seconds=new_elapsed,
+                latency_ms=latency,
             ))
 
             # Continue propagation if degraded or worse
@@ -418,23 +657,36 @@ class CascadeEngine:
             )
 
         if failed_health == HealthStatus.OVERLOADED:
+            # Calculate latency impact from overloaded dependency
+            edge = self.graph.get_dependency_edge(dependent.id, failed.id)
+            edge_latency = edge.latency_ms if edge else 0.0
+            # Overloaded components respond ~3x slower
+            latency_impact = edge_latency * 3.0
             if dependent.utilization() > 70:
                 return (
                     HealthStatus.OVERLOADED,
                     f"Dependency {failed.name} overloaded + "
-                    f"own utilization at {dependent.utilization():.0f}%",
+                    f"own utilization at {dependent.utilization():.0f}% "
+                    f"(+{latency_impact:.0f}ms latency)",
                     15,
                 )
             return (
                 HealthStatus.DEGRADED,
-                f"Dependency {failed.name} overloaded, increased latency",
+                f"Dependency {failed.name} overloaded, increased latency "
+                f"(+{latency_impact:.0f}ms)",
                 10,
             )
 
         if failed_health == HealthStatus.DEGRADED:
+            # Calculate latency impact from degraded dependency
+            edge = self.graph.get_dependency_edge(dependent.id, failed.id)
+            edge_latency = edge.latency_ms if edge else 0.0
+            # Degraded components respond ~2x slower
+            latency_impact = edge_latency * 2.0
             return (
                 HealthStatus.DEGRADED,
-                f"Dependency {failed.name} degraded, potential latency increase",
+                f"Dependency {failed.name} degraded, potential latency increase "
+                f"(+{latency_impact:.0f}ms)",
                 5,
             )
 

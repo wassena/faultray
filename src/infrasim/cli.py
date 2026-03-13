@@ -52,6 +52,7 @@ def scan(
 def simulate(
     model: Path = typer.Option(DEFAULT_MODEL_PATH, "--model", "-m", help="Model file path"),
     html: Path | None = typer.Option(None, "--html", help="Export HTML report to this path"),
+    dynamic: bool = typer.Option(False, "--dynamic", "-d", help="Run dynamic time-stepped simulation"),
 ) -> None:
     """Run chaos simulation against infrastructure model."""
     if not model.exists():
@@ -61,6 +62,17 @@ def simulate(
 
     console.print("[cyan]Loading infrastructure model...[/]")
     graph = InfraGraph.load(model)
+
+    if dynamic:
+        from infrasim.simulator.dynamic_engine import DynamicSimulationEngine
+
+        console.print(f"[cyan]Running dynamic simulation ({len(graph.components)} components)...[/]")
+        dyn_engine = DynamicSimulationEngine(graph)
+        report = dyn_engine.run_all_dynamic_defaults()
+        # report is a DynamicSimulationReport; extract .results list
+        results = getattr(report, "results", report) if not isinstance(report, list) else report
+        _print_dynamic_results(results, console)
+        return
 
     console.print(f"[cyan]Running chaos simulation ({len(graph.components)} components)...[/]")
     engine = SimulationEngine(graph)
@@ -72,6 +84,79 @@ def simulate(
         from infrasim.reporter.html_report import save_html_report
 
         save_html_report(report, graph, html)
+        console.print(f"\n[green]HTML report saved to {html}[/]")
+
+
+def _print_dynamic_results(results: list, con: Console) -> None:
+    """Print a summary of dynamic simulation results to the console."""
+    total = len(results)
+    critical = sum(1 for r in results if getattr(r, "peak_severity", "") == "critical")
+    warning = sum(1 for r in results if getattr(r, "peak_severity", "") == "warning")
+    passed = total - critical - warning
+
+    con.print(f"\n[bold]Dynamic Simulation Results[/]")
+    con.print(
+        f"  Total: [bold]{total}[/]  "
+        f"[red]Critical: {critical}[/]  "
+        f"[yellow]Warning: {warning}[/]  "
+        f"[green]Passed: {passed}[/]\n"
+    )
+
+    for r in results:
+        severity = getattr(r, "peak_severity", "passed")
+        if severity not in ("critical", "warning"):
+            continue
+
+        color = "red" if severity == "critical" else "yellow"
+        name = getattr(r, "scenario_name", getattr(r, "name", "unknown"))
+        peak_time = getattr(r, "peak_severity_time", None)
+        recovery = getattr(r, "recovery_time_seconds", None)
+        autoscale = getattr(r, "autoscaling_events", [])
+        failover = getattr(r, "failover_events", [])
+
+        con.print(f"  [{color}]{severity.upper()}[/] {name}")
+        if peak_time is not None:
+            con.print(f"    Peak severity at: t={peak_time}s")
+        if recovery is not None:
+            con.print(f"    Recovery time: {recovery}s")
+        else:
+            con.print(f"    Recovery time: [red]no recovery[/]")
+        con.print(f"    Autoscaling events: {len(autoscale)}")
+        con.print(f"    Failover events: {len(failover)}")
+        con.print()
+
+
+@app.command()
+def dynamic(
+    model: Path = typer.Option(DEFAULT_MODEL_PATH, "--model", "-m", help="Model file path"),
+    html: Path | None = typer.Option(None, "--html", help="Export HTML report to this path"),
+    duration: int = typer.Option(300, "--duration", help="Simulation duration in seconds"),
+    step: int = typer.Option(5, "--step", help="Time step interval in seconds"),
+) -> None:
+    """Run dynamic time-stepped chaos simulation with realistic traffic patterns."""
+    if not model.exists():
+        console.print(f"[red]Model file not found: {model}[/]")
+        console.print("Run [cyan]infrasim scan[/] first to create a model.")
+        raise typer.Exit(1)
+
+    console.print("[cyan]Loading infrastructure model...[/]")
+    graph = InfraGraph.load(model)
+
+    from infrasim.simulator.dynamic_engine import DynamicSimulationEngine
+
+    console.print(
+        f"[cyan]Running dynamic simulation "
+        f"({len(graph.components)} components, "
+        f"duration={duration}s, step={step}s)...[/]"
+    )
+    engine = DynamicSimulationEngine(graph)
+    results = engine.run_all_dynamic_defaults(duration=duration, step=step)
+    _print_dynamic_results(results, console)
+
+    if html:
+        from infrasim.reporter.html_report import save_html_report
+
+        save_html_report(results, graph, html)
         console.print(f"\n[green]HTML report saved to {html}[/]")
 
 
