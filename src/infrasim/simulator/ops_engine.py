@@ -751,16 +751,33 @@ class OpsSimulationEngine:
             if sli_point.availability_percent < min_avail:
                 min_avail = sli_point.availability_percent
 
-            # Count downtime (proportional to fraction of components down)
-            down_count = sum(
-                1
-                for s in ops_states.values()
-                if s.current_health == HealthStatus.DOWN
-            )
+            # Count downtime using fault-overlap with this timestep to
+            # avoid overestimating short faults (e.g. a 30-second deploy
+            # fault within a 300-second timestep).
+            down_count = 0
+            component_overlap_total = 0.0
+            for comp_id, state in ops_states.items():
+                if state.current_health == HealthStatus.DOWN:
+                    down_count += 1
+                    # Find the maximum overlap of any active event
+                    # targeting this component with the current timestep.
+                    max_overlap = 0.0
+                    for ev in all_events_so_far:
+                        if ev.target_component_id != comp_id:
+                            continue
+                        ev_start = ev.time_seconds
+                        ev_end = ev_start + ev.duration_seconds
+                        overlap = min(ev_end, t + step_seconds) - max(ev_start, t)
+                        if overlap > max_overlap:
+                            max_overlap = overlap
+                    # Use the fault overlap, falling back to the full
+                    # step if no matching event was found (defensive).
+                    component_overlap_total += max_overlap if max_overlap > 0 else step_seconds
+
             total_components = len(ops_states)
             if down_count > 0 and total_components > 0:
-                total_down_seconds += step_seconds * down_count / total_components
-                total_component_down_seconds += down_count * step_seconds
+                total_down_seconds += component_overlap_total / total_components
+                total_component_down_seconds += component_overlap_total
 
         # Include degradation-generated events in the result
         result.events.extend(degradation_events)

@@ -68,6 +68,10 @@ class TrafficPattern(BaseModel):
         default=10,
         description="Interval between bursts for DDoS patterns.",
     )
+    base_multiplier: float = Field(
+        default=1.0,
+        description="Output scaling factor applied to the final multiplier result.",
+    )
     affected_components: list[str] = Field(
         default_factory=list,
         description="Component IDs affected by this pattern.  Empty means all.",
@@ -80,45 +84,40 @@ class TrafficPattern(BaseModel):
     def multiplier_at(self, t: int) -> float:
         """Return the traffic multiplier at time *t* (seconds from start).
 
-        The returned value is always >= 1.0.  If *t* falls outside
-        ``[0, duration_seconds)``, the baseline multiplier 1.0 is returned.
+        The returned value is always >= 1.0 (before ``base_multiplier``
+        scaling).  If *t* falls outside ``[0, duration_seconds)``, the
+        baseline multiplier 1.0 is returned (still scaled by
+        ``base_multiplier``).
         """
         if t < 0 or t >= self.duration_seconds:
-            return 1.0
+            return 1.0 * self.base_multiplier
 
         pt = self.pattern_type
 
         if pt == TrafficPatternType.CONSTANT:
-            return self._constant()
+            raw = self._constant()
+        elif pt == TrafficPatternType.RAMP:
+            raw = self._ramp(t)
+        elif pt == TrafficPatternType.SPIKE:
+            raw = self._spike(t)
+        elif pt == TrafficPatternType.WAVE:
+            raw = self._wave(t)
+        elif pt == TrafficPatternType.DDoS_VOLUMETRIC:
+            raw = self._ddos_volumetric(t)
+        elif pt == TrafficPatternType.DDoS_SLOWLORIS:
+            raw = self._ddos_slowloris(t)
+        elif pt == TrafficPatternType.FLASH_CROWD:
+            raw = self._flash_crowd(t)
+        elif pt == TrafficPatternType.DIURNAL:
+            raw = self._diurnal(t)
+        elif pt == TrafficPatternType.DIURNAL_WEEKLY:
+            raw = self._diurnal_weekly(t)
+        elif pt == TrafficPatternType.GROWTH_TREND:
+            raw = self._growth_trend(t)
+        else:
+            raw = 1.0
 
-        if pt == TrafficPatternType.RAMP:
-            return self._ramp(t)
-
-        if pt == TrafficPatternType.SPIKE:
-            return self._spike(t)
-
-        if pt == TrafficPatternType.WAVE:
-            return self._wave(t)
-
-        if pt == TrafficPatternType.DDoS_VOLUMETRIC:
-            return self._ddos_volumetric(t)
-
-        if pt == TrafficPatternType.DDoS_SLOWLORIS:
-            return self._ddos_slowloris(t)
-
-        if pt == TrafficPatternType.FLASH_CROWD:
-            return self._flash_crowd(t)
-
-        if pt == TrafficPatternType.DIURNAL:
-            return self._diurnal(t)
-
-        if pt == TrafficPatternType.DIURNAL_WEEKLY:
-            return self._diurnal_weekly(t)
-
-        if pt == TrafficPatternType.GROWTH_TREND:
-            return self._growth_trend(t)
-
-        return 1.0
+        return raw * self.base_multiplier
 
     # ------------------------------------------------------------------
     # Private helpers for each pattern type

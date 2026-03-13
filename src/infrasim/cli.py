@@ -323,10 +323,15 @@ def _print_ops_results(result: "OpsSimulationResult", con: Console) -> None:  # 
     scenario = result.scenario
 
     # ---- 1. Simulation Summary Box ----------------------------------------
+    # Use average availability for color (min_availability is too volatile
+    # due to brief deploy-induced dips) — still display min in the output.
+    avg_avail_for_color = 100.0
+    if result.sli_timeline:
+        avg_avail_for_color = sum(p.availability_percent for p in result.sli_timeline) / len(result.sli_timeline)
     avail = result.min_availability
-    if avail >= 99.9:
+    if avg_avail_for_color >= 99.9:
         avail_color = "green"
-    elif avail >= 99.0:
+    elif avg_avail_for_color >= 99.0:
         avail_color = "yellow"
     else:
         avail_color = "red"

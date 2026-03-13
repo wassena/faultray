@@ -412,8 +412,13 @@ class CapacityPlanningEngine:
             mttr_min = comp.operational_profile.mttr_minutes
             if mttr_min <= 0:
                 mttr_min = 30.0  # default 30 min
-            # Expected downtime per day = (24h / mtbf_hours) * mttr_minutes
-            daily_burn += (24.0 / mtbf_h) * mttr_min
+            # Expected downtime per day from failures
+            failure_downtime = (24.0 / mtbf_h) * mttr_min
+            # Multi-replica redundancy: only causes downtime if all replicas fail simultaneously
+            # Approximate: discount by 1/replicas (single failure doesn't cause full outage)
+            if comp.replicas > 1:
+                failure_downtime /= comp.replicas
+            daily_burn += failure_downtime
 
             # Factor 3: SPOF risk (single replica)
             if comp.replicas <= 1:

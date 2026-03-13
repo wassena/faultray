@@ -359,7 +359,7 @@ class WhatIfEngine:
                     comp.operational_profile.mtbf_hours *= value
             elif param == "traffic_factor":
                 for pattern in modified_scenario.traffic_patterns:
-                    pattern.peak_multiplier *= value
+                    pattern.base_multiplier *= value
             elif param == "replica_factor":
                 for comp in modified_graph.components.values():
                     original = comp.replicas
@@ -527,8 +527,7 @@ class WhatIfEngine:
             Modified graph with scaled MTTR and the original scenario.
         """
         graph = copy.deepcopy(self.graph)
-        total_seconds = base_scenario.duration_days * 86400
-        max_mtbf_hours = total_seconds / 3.0 / 3600.0
+        max_mtbf_hours = base_scenario.duration_days * 24.0
         for comp in graph.components.values():
             if comp.operational_profile.mtbf_hours <= 0:
                 comp.operational_profile.mtbf_hours = (
@@ -606,7 +605,7 @@ class WhatIfEngine:
         """
         scenario = base_scenario.model_copy(deep=True)
         for pattern in scenario.traffic_patterns:
-            pattern.peak_multiplier *= factor
+            pattern.base_multiplier *= factor
         return copy.deepcopy(self.graph), scenario
 
     def _apply_replica_factor(
