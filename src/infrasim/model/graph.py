@@ -52,6 +52,14 @@ class InfraGraph:
             return edge.get("dependency")
         return None
 
+    def all_dependency_edges(self) -> list:
+        """Return all dependency edge metadata."""
+        edges = []
+        for u, v, data in self._graph.edges(data=True):
+            if "dependency" in data:
+                edges.append(data["dependency"])
+        return edges
+
     def get_cascade_path(self, failed_component_id: str) -> list[list[str]]:
         """Find all paths that could be affected by a component failure.
 

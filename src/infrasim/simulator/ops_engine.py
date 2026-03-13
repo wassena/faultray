@@ -253,6 +253,78 @@ class SLOTracker:
         # Key: (component_id, metric), Value: list of (time_seconds, violated)
         self._violations: dict[tuple[str, str], list[tuple[int, bool]]] = {}
 
+    def _propagate_dependencies(
+        self, comp_states: dict[str, _OpsComponentState]
+    ) -> dict[str, HealthStatus]:
+        """Compute effective health after dependency propagation.
+
+        Returns dict[str, HealthStatus] mapping component_id to effective health.
+        Does NOT modify actual component states.
+        """
+        effective = {
+            cid: state.current_health for cid, state in comp_states.items()
+        }
+
+        # Get all dependency edges
+        dep_edges = self.graph.all_dependency_edges()
+
+        # Fixed-point iteration
+        for _ in range(len(comp_states) + 1):
+            changed = False
+            for comp_id in comp_states:
+                if effective[comp_id] == HealthStatus.DOWN:
+                    continue
+
+                # Collect requires targets for this component
+                requires_targets: list[HealthStatus] = []
+                has_optional_down = False
+
+                for dep in dep_edges:
+                    if dep.source_id != comp_id:
+                        continue
+                    target_health = effective.get(dep.target_id)
+                    if target_health is None:
+                        continue
+
+                    if dep.dependency_type == "requires":
+                        requires_targets.append(target_health)
+                    elif dep.dependency_type == "optional":
+                        if target_health == HealthStatus.DOWN:
+                            has_optional_down = True
+                    # async: no propagation
+
+                # Apply rules
+                if requires_targets:
+                    all_down = all(
+                        h == HealthStatus.DOWN for h in requires_targets
+                    )
+                    any_down = any(
+                        h == HealthStatus.DOWN for h in requires_targets
+                    )
+                    any_overloaded = any(
+                        h == HealthStatus.OVERLOADED
+                        for h in requires_targets
+                    )
+
+                    if all_down:
+                        if effective[comp_id] != HealthStatus.DOWN:
+                            effective[comp_id] = HealthStatus.DOWN
+                            changed = True
+                    elif any_down or any_overloaded:
+                        if effective[comp_id] == HealthStatus.HEALTHY:
+                            effective[comp_id] = HealthStatus.DEGRADED
+                            changed = True
+
+                if has_optional_down:
+                    if effective[comp_id] == HealthStatus.HEALTHY:
+                        effective[comp_id] = HealthStatus.DEGRADED
+                        changed = True
+
+            if not changed:
+                break
+
+        return effective
+
     def record(
         self,
         time_seconds: int,
@@ -273,25 +345,29 @@ class SLOTracker:
             The measurement recorded.
         """
         total = len(comp_states)
+
+        # Use dependency-propagated effective health for counting
+        effective_health = self._propagate_dependencies(comp_states)
+
         healthy = sum(
             1
-            for s in comp_states.values()
-            if s.current_health == HealthStatus.HEALTHY
+            for h in effective_health.values()
+            if h == HealthStatus.HEALTHY
         )
         degraded = sum(
             1
-            for s in comp_states.values()
-            if s.current_health == HealthStatus.DEGRADED
+            for h in effective_health.values()
+            if h == HealthStatus.DEGRADED
         )
         overloaded = sum(
             1
-            for s in comp_states.values()
-            if s.current_health == HealthStatus.OVERLOADED
+            for h in effective_health.values()
+            if h == HealthStatus.OVERLOADED
         )
         down = sum(
             1
-            for s in comp_states.values()
-            if s.current_health == HealthStatus.DOWN
+            for h in effective_health.values()
+            if h == HealthStatus.DOWN
         )
 
         # Availability: DOWN = 0%, OVERLOADED = 80% (20% error rate),
@@ -628,8 +704,19 @@ class OpsSimulationEngine:
                 )
 
                 if is_faulted:
-                    state.current_health = HealthStatus.DOWN
-                    state.current_utilization = 0.0
+                    # Maintenance/deploy on multi-replica → DEGRADED (rolling update)
+                    is_only_planned = all(
+                        ev.event_type in (OpsEventType.MAINTENANCE, OpsEventType.DEPLOY, OpsEventType.CERT_RENEWAL)
+                        for ev in all_events_so_far
+                        if ev.target_component_id == comp_id
+                        and ev.time_seconds <= t < ev.time_seconds + ev.duration_seconds
+                    )
+                    if is_only_planned and comp.replicas > 1:
+                        state.current_health = HealthStatus.DEGRADED
+                        state.current_utilization = state.base_utilization * 1.5
+                    else:
+                        state.current_health = HealthStatus.DOWN
+                        state.current_utilization = 0.0
                 else:
                     # Calculate effective utilization.
                     # base_utilization is already per-replica, so we
@@ -751,13 +838,15 @@ class OpsSimulationEngine:
             if sli_point.availability_percent < min_avail:
                 min_avail = sli_point.availability_percent
 
-            # Count downtime using fault-overlap with this timestep to
-            # avoid overestimating short faults (e.g. a 30-second deploy
-            # fault within a 300-second timestep).
+            # Count downtime using effective health (dependency-propagated)
+            # and fault-overlap with this timestep to avoid overestimating
+            # short faults (e.g. a 30-second deploy fault within a
+            # 300-second timestep).
+            eff_health = tracker._propagate_dependencies(ops_states)
             down_count = 0
             component_overlap_total = 0.0
             for comp_id, state in ops_states.items():
-                if state.current_health == HealthStatus.DOWN:
+                if eff_health[comp_id] == HealthStatus.DOWN:
                     down_count += 1
                     # Find the maximum overlap of any active event
                     # targeting this component with the current timestep.
