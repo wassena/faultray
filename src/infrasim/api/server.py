@@ -4,10 +4,14 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+import time
+from collections import defaultdict
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -16,6 +20,32 @@ from infrasim.model.graph import InfraGraph
 from infrasim.simulator.engine import SimulationEngine
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Rate limiter — lightweight in-memory implementation
+# ---------------------------------------------------------------------------
+
+class RateLimiter:
+    """Simple in-memory rate limiter using a sliding window."""
+
+    def __init__(self, max_requests: int = 60, window_seconds: int = 60):
+        self.max_requests = max_requests
+        self.window = window_seconds
+        self.requests: dict[str, list[float]] = defaultdict(list)
+
+    def is_allowed(self, client_id: str) -> bool:
+        now = time.time()
+        self.requests[client_id] = [
+            t for t in self.requests[client_id] if now - t < self.window
+        ]
+        if len(self.requests[client_id]) >= self.max_requests:
+            return False
+        self.requests[client_id].append(now)
+        return True
+
+
+_rate_limiter = RateLimiter()
 
 # ---------------------------------------------------------------------------
 # Module-level state
@@ -51,6 +81,61 @@ app = FastAPI(
     redoc_url="/redoc",
     lifespan=lifespan,
 )
+
+# ---------------------------------------------------------------------------
+# CORS middleware — origins configurable via INFRASIM_CORS_ORIGINS env var
+# ---------------------------------------------------------------------------
+_cors_origins_raw = os.environ.get("INFRASIM_CORS_ORIGINS", "*")
+_cors_origins: list[str] = [
+    origin.strip()
+    for origin in _cors_origins_raw.split(",")
+    if origin.strip()
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_cors_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+# ---------------------------------------------------------------------------
+# Rate-limiting middleware for /api/* routes
+# ---------------------------------------------------------------------------
+
+@app.middleware("http")
+async def rate_limit_middleware(request: Request, call_next):
+    """Enforce rate limiting on /api/* endpoints."""
+    if request.url.path.startswith("/api"):
+        client_ip = request.client.host if request.client else "unknown"
+        if not _rate_limiter.is_allowed(client_ip):
+            return JSONResponse(
+                status_code=429,
+                content={
+                    "error": {
+                        "code": 429,
+                        "message": "Too many requests. Please try again later.",
+                    }
+                },
+            )
+    return await call_next(request)
+
+
+# ---------------------------------------------------------------------------
+# Structured error responses
+# ---------------------------------------------------------------------------
+
+@app.exception_handler(HTTPException)
+async def custom_http_exception_handler(request: Request, exc: HTTPException):
+    """Return structured JSON error responses for HTTP exceptions."""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"error": {"code": exc.status_code, "message": exc.detail}},
+    )
+
+
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 
 

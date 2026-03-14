@@ -1,0 +1,60 @@
+name: 'InfraSim Chaos Check'
+description: 'Run InfraSim chaos simulation on infrastructure YAML files'
+branding:
+  icon: 'shield'
+  color: 'orange'
+
+inputs:
+  yaml-file:
+    description: 'Path to InfraSim YAML file'
+    required: true
+  python-version:
+    description: 'Python version'
+    required: false
+    default: '3.11'
+  comment-on-pr:
+    description: 'Comment results on PR'
+    required: false
+    default: 'true'
+
+outputs:
+  resilience-score:
+    description: 'Resilience score (0-100)'
+    value: ${{ steps.run.outputs.score }}
+  critical-count:
+    description: 'Number of critical findings'
+    value: ${{ steps.run.outputs.critical }}
+  passed:
+    description: 'Whether all checks passed (no critical findings)'
+    value: ${{ steps.run.outputs.passed }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install InfraSim
+      shell: bash
+      run: pip install infrasim
+
+    - name: Run InfraSim
+      id: run
+      shell: bash
+      run: |
+        infrasim load "${{ inputs.yaml-file }}"
+        infrasim simulate --json /tmp/infrasim-results.json 2>&1 | tee /tmp/infrasim-output.txt
+
+        # Extract metrics
+        SCORE=$(python3 -c "import json; r=json.load(open('/tmp/infrasim-results.json')); print(r.get('resilience_score', 0))" 2>/dev/null || echo "0")
+        CRITICAL=$(python3 -c "import json; r=json.load(open('/tmp/infrasim-results.json')); print(len([x for x in r.get('results',[]) if x.get('is_critical')]))" 2>/dev/null || echo "0")
+
+        echo "score=$SCORE" >> $GITHUB_OUTPUT
+        echo "critical=$CRITICAL" >> $GITHUB_OUTPUT
+        if [ "$CRITICAL" = "0" ]; then
+          echo "passed=true" >> $GITHUB_OUTPUT
+        else
+          echo "passed=false" >> $GITHUB_OUTPUT
+        fi
