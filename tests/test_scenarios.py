@@ -54,13 +54,13 @@ def test_rolling_restart_two_servers():
 
 
 def test_rolling_restart_three_servers():
-    """With 3 app servers, 2 should go down (majority)."""
+    """With 3 app servers, maxUnavailable=25% -> max(1, 3//4)=1 server down."""
     comps = _make_components(3)
     ids = list(comps.keys())
     scenarios = generate_default_scenarios(ids, components=comps)
     sc = _find_scenario(scenarios, "rolling-restart-fail")
     assert sc is not None
-    assert len(sc.faults) == 2, f"Expected 2 faults for 3 servers, got {len(sc.faults)}"
+    assert len(sc.faults) == 1, f"Expected 1 fault for 3 servers (maxUnavailable=25%), got {len(sc.faults)}"
 
 
 def test_no_rolling_restart_with_one_server():

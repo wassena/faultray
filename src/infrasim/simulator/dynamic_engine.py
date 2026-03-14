@@ -163,6 +163,7 @@ class _CircuitBreakerDynamicState:
     open_since_seconds: int = 0  # time step when OPEN was entered
     recovery_timeout_seconds: float = 60.0
     failure_threshold: int = 5
+    consecutive_opens: int = 0  # tracks repeated OPEN cycles for adaptive timeout
 
 
 @dataclass
@@ -550,14 +551,22 @@ class DynamicSimulationEngine:
             if util > cfg.scale_up_threshold:
                 state.pending_scale_up_seconds += step_sec
                 state.pending_scale_down_seconds = 0  # reset cooldown
-                if state.pending_scale_up_seconds >= cfg.scale_up_delay_seconds:
+
+                # Emergency scale-up: bypass delay when utilization is critical
+                # (>90%).  Real-world HPA implementations trigger immediate
+                # scaling at extreme utilization to prevent outages.
+                emergency = util > 90.0
+                if emergency or state.pending_scale_up_seconds >= cfg.scale_up_delay_seconds:
+                    # Emergency scaling uses a larger step to recover faster
+                    step_size = cfg.scale_up_step * 2 if emergency else cfg.scale_up_step
                     new_replicas = min(
-                        state.current_replicas + cfg.scale_up_step,
+                        state.current_replicas + step_size,
                         cfg.max_replicas,
                     )
                     if new_replicas > state.current_replicas:
+                        mode = "EMERGENCY" if emergency else "AUTO"
                         msg = (
-                            f"[t={t}s] AUTO-SCALE UP {comp_id}: "
+                            f"[t={t}s] {mode}-SCALE UP {comp_id}: "
                             f"{state.current_replicas} -> {new_replicas} replicas "
                             f"(utilization {util:.1f}% > {cfg.scale_up_threshold}%)"
                         )
@@ -765,11 +774,24 @@ class DynamicSimulationEngine:
 
             elif cb.state == _CBState.OPEN:
                 elapsed_open = t - cb.open_since_seconds
-                if elapsed_open >= cb.recovery_timeout_seconds:
+                # Adaptive recovery timeout: first attempt uses a shorter
+                # timeout (1/3 of configured) to enable fast recovery from
+                # transient failures.  Subsequent re-opens use exponentially
+                # increasing timeouts (capped at the configured value).
+                if cb.consecutive_opens == 0:
+                    effective_timeout = max(
+                        step_sec, cb.recovery_timeout_seconds / 3.0,
+                    )
+                else:
+                    effective_timeout = min(
+                        cb.recovery_timeout_seconds,
+                        cb.recovery_timeout_seconds / 3.0 * (2 ** cb.consecutive_opens),
+                    )
+                if elapsed_open >= effective_timeout:
                     cb.state = _CBState.HALF_OPEN
                     msg = (
                         f"[t={t}s] CIRCUIT BREAKER HALF_OPEN {src}->{tgt}: "
-                        f"recovery timeout ({cb.recovery_timeout_seconds}s) "
+                        f"adaptive timeout ({effective_timeout:.1f}s) "
                         f"elapsed, testing connectivity"
                     )
                     events.append(msg)
@@ -779,6 +801,7 @@ class DynamicSimulationEngine:
                 if target_state.current_health == HealthStatus.HEALTHY:
                     cb.state = _CBState.CLOSED
                     cb.failure_count = 0
+                    cb.consecutive_opens = 0  # reset on successful recovery
                     msg = (
                         f"[t={t}s] CIRCUIT BREAKER CLOSED {src}->{tgt}: "
                         f"target is HEALTHY, resuming normal traffic"
@@ -786,13 +809,15 @@ class DynamicSimulationEngine:
                     events.append(msg)
                     logger.info(msg)
                 elif target_unhealthy:
-                    # Still failing -- trip back to OPEN
+                    # Still failing -- trip back to OPEN with increased backoff
                     cb.state = _CBState.OPEN
                     cb.open_since_seconds = t
+                    cb.consecutive_opens += 1
                     msg = (
                         f"[t={t}s] CIRCUIT BREAKER RE-OPENED {src}->{tgt}: "
                         f"target still unhealthy in HALF_OPEN, "
-                        f"blocking cascade propagation"
+                        f"blocking cascade propagation "
+                        f"(backoff level {cb.consecutive_opens})"
                     )
                     events.append(msg)
                     logger.info(msg)

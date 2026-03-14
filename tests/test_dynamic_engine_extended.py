@@ -455,13 +455,18 @@ def test_cb_closed_to_open_directly():
 
 
 def test_cb_open_to_half_open_directly():
-    """CB in OPEN state should transition to HALF_OPEN after recovery_timeout."""
+    """CB in OPEN state should transition to HALF_OPEN after adaptive timeout.
+
+    With adaptive recovery, the first OPEN cycle uses 1/3 of the configured
+    recovery_timeout (15/3 = 5s).  So at t=3 (elapsed=3 < 5), no transition;
+    at t=5 (elapsed=5 >= 5), transition to HALF_OPEN.
+    """
     graph = _build_circuit_breaker_dynamic_graph()
     engine = DynamicSimulationEngine(graph)
     cb_states = engine._init_circuit_breaker_states()
     key = ("app", "db")
 
-    # Force OPEN state
+    # Force OPEN state (first cycle — consecutive_opens=0)
     cb_states[key].state = _CBState.OPEN
     cb_states[key].open_since_seconds = 0
 
@@ -476,13 +481,13 @@ def test_cb_open_to_half_open_directly():
         ),
     }
 
-    # recovery_timeout = 15s. At t=10, elapsed=10 < 15, no transition
-    events1 = engine._evaluate_circuit_breakers(cb_states, comp_states, 5, 10)
+    # Adaptive timeout = max(step_sec, 15/3) = 5s.  At t=3, elapsed=3 < 5
+    events1 = engine._evaluate_circuit_breakers(cb_states, comp_states, 1, 3)
     assert len(events1) == 0
     assert cb_states[key].state == _CBState.OPEN
 
-    # At t=15, elapsed=15 >= 15, transition to HALF_OPEN
-    events2 = engine._evaluate_circuit_breakers(cb_states, comp_states, 5, 15)
+    # At t=5, elapsed=5 >= 5, transition to HALF_OPEN
+    events2 = engine._evaluate_circuit_breakers(cb_states, comp_states, 1, 5)
     assert len(events2) == 1
     assert "HALF_OPEN" in events2[0]
     assert cb_states[key].state == _CBState.HALF_OPEN

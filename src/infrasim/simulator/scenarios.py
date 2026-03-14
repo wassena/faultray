@@ -563,15 +563,16 @@ def generate_default_scenarios(
     # CATEGORY 25: Rolling restart failure
     # =========================================================================
     if len(app) >= 2:
-        # Majority of app servers down during rolling deployment,
-        # but always keep at least one running (otherwise it's a total
-        # outage, not a rolling restart failure).
-        half = app[:min(len(app) - 1, len(app) // 2 + 1)]
+        # Model a realistic rolling deployment with maxUnavailable strategy.
+        # Kubernetes default maxUnavailable is 25%, so we fault at most 25% of
+        # app servers (minimum 1, always keep at least one running).
+        max_unavailable = max(1, len(app) // 4)
+        batch = app[:min(max_unavailable, len(app) - 1)]
         scenarios.append(Scenario(
             id="rolling-restart-fail", name="Rolling restart failure",
-            description=f"Rolling deployment: {len(half)}/{len(app)} app servers down simultaneously during restart",
+            description=f"Rolling deployment: {len(batch)}/{len(app)} app servers down simultaneously (maxUnavailable={max_unavailable})",
             faults=[Fault(target_component_id=c, fault_type=FaultType.COMPONENT_DOWN,
-                          parameters={"cause": "rolling_restart"}) for c in half],
+                          parameters={"cause": "rolling_restart"}) for c in batch],
         ))
 
     # =========================================================================
