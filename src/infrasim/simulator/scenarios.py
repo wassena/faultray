@@ -505,8 +505,10 @@ def generate_default_scenarios(
     # CATEGORY 25: Rolling restart failure
     # =========================================================================
     if len(app) >= 2:
-        # Half the app servers down during rolling deployment
-        half = app[:len(app) // 2 + 1]
+        # Majority of app servers down during rolling deployment,
+        # but always keep at least one running (otherwise it's a total
+        # outage, not a rolling restart failure).
+        half = app[:min(len(app) - 1, len(app) // 2 + 1)]
         scenarios.append(Scenario(
             id="rolling-restart-fail", name="Rolling restart failure",
             description=f"Rolling deployment: {len(half)}/{len(app)} app servers down simultaneously during restart",
