@@ -16,8 +16,8 @@ COPY README.md ./
 RUN pip install --no-cache-dir -e .
 
 # Create data directory for feed storage
-RUN mkdir -p /root/.infrasim
+RUN mkdir -p /root/.chaosproof
 
 # Default: run web dashboard
 EXPOSE 8000
-CMD ["infrasim", "serve", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["chaosproof", "serve", "--host", "0.0.0.0", "--port", "8000"]

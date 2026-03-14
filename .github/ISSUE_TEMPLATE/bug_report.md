@@ -1,6 +1,6 @@
 ---
 name: Bug Report
-about: Report a bug in InfraSim
+about: Report a bug in ChaosProof
 labels: bug
 ---
 
@@ -20,5 +20,5 @@ What actually happens.
 ## Environment
 - OS:
 - Python version:
-- InfraSim version:
+- ChaosProof version:
 - Installation method (pip/docker/source):

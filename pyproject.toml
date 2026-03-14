@@ -3,9 +3,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "infrasim"
+name = "chaosproof"
 version = "1.0.0"
-description = "Zero-risk infrastructure chaos engineering — simulate failures, prove availability ceilings, without touching production"
+description = "ChaosProof — Zero-risk infrastructure chaos engineering. Prove your availability ceiling mathematically."
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.11"
@@ -56,6 +56,7 @@ Issues = "https://github.com/mattyopon/infrasim/issues"
 Changelog = "https://github.com/mattyopon/infrasim#changelog"
 
 [project.scripts]
+chaosproof = "infrasim.cli:app"
 infrasim = "infrasim.cli:app"
 
 [tool.hatch.build.targets.wheel]

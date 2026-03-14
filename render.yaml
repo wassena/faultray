@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: infrasim-demo
+    name: chaosproof-demo
     runtime: docker
     plan: free
     healthCheckPath: /

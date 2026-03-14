@@ -1,4 +1,4 @@
-"""OAuth2 SSO integration for InfraSim (GitHub and Google providers)."""
+"""OAuth2 SSO integration for ChaosProof (GitHub and Google providers)."""
 
 from __future__ import annotations
 
@@ -37,17 +37,20 @@ class OAuthConfig:
 
     @classmethod
     def from_env(cls, provider: str) -> Optional["OAuthConfig"]:
-        """Build config from ``INFRASIM_OAUTH_{PROVIDER}_*`` env vars.
+        """Build config from ``CHAOSPROOF_OAUTH_{PROVIDER}_*`` env vars.
+
+        Falls back to ``INFRASIM_OAUTH_*`` for backward compatibility.
 
         Returns ``None`` when the required ``CLIENT_ID`` / ``CLIENT_SECRET``
         variables are not set.
         """
-        prefix = f"INFRASIM_OAUTH_{provider.upper()}"
-        client_id = os.getenv(f"{prefix}_CLIENT_ID")
-        client_secret = os.getenv(f"{prefix}_CLIENT_SECRET")
+        new_prefix = f"CHAOSPROOF_OAUTH_{provider.upper()}"
+        old_prefix = f"INFRASIM_OAUTH_{provider.upper()}"
+        client_id = os.getenv(f"{new_prefix}_CLIENT_ID", os.getenv(f"{old_prefix}_CLIENT_ID"))
+        client_secret = os.getenv(f"{new_prefix}_CLIENT_SECRET", os.getenv(f"{old_prefix}_CLIENT_SECRET"))
         redirect_uri = os.getenv(
-            f"{prefix}_REDIRECT_URI",
-            "http://localhost:8000/auth/callback",
+            f"{new_prefix}_REDIRECT_URI",
+            os.getenv(f"{old_prefix}_REDIRECT_URI", "http://localhost:8000/auth/callback"),
         )
         if client_id and client_secret:
             return cls(

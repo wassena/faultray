@@ -1,4 +1,4 @@
-"""FastAPI web dashboard for InfraSim."""
+"""FastAPI web dashboard for ChaosProof."""
 
 from __future__ import annotations
 
@@ -67,18 +67,18 @@ async def lifespan(application: FastAPI):
     from infrasim.api.database import init_db
     try:
         await init_db()
-        logger.info("InfraSim database initialised.")
+        logger.info("ChaosProof database initialised.")
     except Exception:
         logger.warning("Database initialisation skipped (aiosqlite may not be installed).")
 
     # Start Prometheus background monitor if configured
     _prom_monitor = None
-    prom_url = os.environ.get("INFRASIM_PROMETHEUS_URL")
+    prom_url = os.environ.get("CHAOSPROOF_PROMETHEUS_URL", os.environ.get("INFRASIM_PROMETHEUS_URL"))
     if prom_url:
         try:
             from infrasim.discovery.prometheus_monitor import PrometheusMonitor
 
-            interval = int(os.environ.get("INFRASIM_PROMETHEUS_INTERVAL", "60"))
+            interval = int(os.environ.get("CHAOSPROOF_PROMETHEUS_INTERVAL", os.environ.get("INFRASIM_PROMETHEUS_INTERVAL", "60")))
             _prom_monitor = PrometheusMonitor(prom_url, get_graph(), interval)
             await _prom_monitor.start()
             logger.info("Prometheus monitor started: %s (interval=%ds)", prom_url, interval)
@@ -93,8 +93,8 @@ async def lifespan(application: FastAPI):
 
 
 app = FastAPI(
-    title="InfraSim API",
-    description="Virtual infrastructure chaos engineering platform — simulate failures without touching production",
+    title="ChaosProof API",
+    description="Zero-risk infrastructure chaos engineering platform — simulate failures without touching production",
     version="0.2.0",
     docs_url="/docs",
     redoc_url="/redoc",
@@ -102,9 +102,9 @@ app = FastAPI(
 )
 
 # ---------------------------------------------------------------------------
-# CORS middleware — origins configurable via INFRASIM_CORS_ORIGINS env var
+# CORS middleware — origins configurable via CHAOSPROOF_CORS_ORIGINS env var
 # ---------------------------------------------------------------------------
-_cors_origins_raw = os.environ.get("INFRASIM_CORS_ORIGINS", "*")
+_cors_origins_raw = os.environ.get("CHAOSPROOF_CORS_ORIGINS", os.environ.get("INFRASIM_CORS_ORIGINS", "*"))
 _cors_origins: list[str] = [
     origin.strip()
     for origin in _cors_origins_raw.split(",")
@@ -801,8 +801,8 @@ async def list_audit_logs(
 async def oauth_login(provider: str):
     """Redirect to the OAuth provider's authorization page.
 
-    Only active when ``INFRASIM_OAUTH_{PROVIDER}_CLIENT_ID`` and
-    ``INFRASIM_OAUTH_{PROVIDER}_CLIENT_SECRET`` env vars are set.
+    Only active when ``CHAOSPROOF_OAUTH_{PROVIDER}_CLIENT_ID`` and
+    ``CHAOSPROOF_OAUTH_{PROVIDER}_CLIENT_SECRET`` env vars are set.
     """
     from infrasim.api.oauth import OAuthConfig, generate_oauth_url
 

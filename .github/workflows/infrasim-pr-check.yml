@@ -1,4 +1,4 @@
-name: InfraSim Infrastructure Check
+name: ChaosProof Infrastructure Check
 
 on:
   pull_request:
@@ -8,13 +8,14 @@ on:
       - '**/terraform/**'
       - '**/*.tf'
       - '**/infrasim*.yaml'
+      - '**/chaosproof*.yaml'
 
 permissions:
   pull-requests: write
   contents: read
 
 jobs:
-  infrasim-check:
+  chaosproof-check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -24,16 +25,16 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install InfraSim
-        run: pip install infrasim  # or pip install -e . if in same repo
+      - name: Install ChaosProof
+        run: pip install chaosproof  # or pip install -e . if in same repo
 
       - name: Find infrastructure YAML files
         id: find-yaml
         run: |
-          # Find InfraSim YAML files in the PR
-          FILES=$(find . -name 'infrasim*.yaml' -o -name 'infrasim*.yml' -o -name 'infrastructure*.yaml' | head -5)
+          # Find ChaosProof/InfraSim YAML files in the PR
+          FILES=$(find . -name 'chaosproof*.yaml' -o -name 'infrasim*.yaml' -o -name 'chaosproof*.yml' -o -name 'infrasim*.yml' -o -name 'infrastructure*.yaml' | head -5)
           if [ -z "$FILES" ]; then
-            echo "No InfraSim YAML files found"
+            echo "No ChaosProof YAML files found"
             echo "found=false" >> $GITHUB_OUTPUT
           else
             echo "found=true" >> $GITHUB_OUTPUT
@@ -41,18 +42,18 @@ jobs:
             echo "first_file=$(echo $FILES | head -1)" >> $GITHUB_OUTPUT
           fi
 
-      - name: Run InfraSim simulation
+      - name: Run ChaosProof simulation
         if: steps.find-yaml.outputs.found == 'true'
         run: |
           FILE="${{ steps.find-yaml.outputs.first_file }}"
-          echo "Running InfraSim on $FILE..."
+          echo "Running ChaosProof on $FILE..."
 
           # Run simulation with JSON output
-          infrasim load "$FILE"
-          infrasim simulate --json infrasim-results.json 2>&1 | tee infrasim-output.txt
+          chaosproof load "$FILE"
+          chaosproof simulate --json chaosproof-results.json 2>&1 | tee chaosproof-output.txt
 
           # Run AI analysis
-          infrasim analyze "$FILE" --json 2>&1 | tee infrasim-analysis.txt
+          chaosproof analyze "$FILE" --json 2>&1 | tee chaosproof-analysis.txt
 
       - name: Comment PR with results
         if: steps.find-yaml.outputs.found == 'true'
@@ -62,16 +63,16 @@ jobs:
             const fs = require('fs');
 
             let output = '';
-            try { output = fs.readFileSync('infrasim-output.txt', 'utf8'); } catch(e) {}
+            try { output = fs.readFileSync('chaosproof-output.txt', 'utf8'); } catch(e) {}
             let analysis = '';
-            try { analysis = fs.readFileSync('infrasim-analysis.txt', 'utf8'); } catch(e) {}
+            try { analysis = fs.readFileSync('chaosproof-analysis.txt', 'utf8'); } catch(e) {}
 
             // Parse key metrics from output
             const lines = output.split('\n');
             const resilienceLine = lines.find(l => l.includes('Resilience'));
             const criticalLine = lines.find(l => l.includes('CRITICAL') || l.includes('Critical'));
 
-            const body = `## InfraSim Chaos Simulation Report
+            const body = `## ChaosProof Chaos Simulation Report
 
             ${resilienceLine ? '**' + resilienceLine.trim() + '**' : ''}
             ${criticalLine ? criticalLine.trim() : ''}
@@ -93,9 +94,9 @@ jobs:
             </details>
 
             ---
-            *Powered by [InfraSim](https://github.com/mattyopon/infrasim) -- Zero-Risk Infrastructure Chaos Simulation*`;
+            *Powered by [ChaosProof](https://github.com/mattyopon/infrasim) -- Zero-Risk Infrastructure Chaos Simulation*`;
 
-            // Find existing InfraSim comment to update
+            // Find existing ChaosProof comment to update
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -103,7 +104,7 @@ jobs:
             });
 
             const existingComment = comments.find(c =>
-              c.body.includes('InfraSim Chaos Simulation Report'));
+              c.body.includes('ChaosProof Chaos Simulation Report'));
 
             if (existingComment) {
               await github.rest.issues.updateComment({

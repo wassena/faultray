@@ -21,7 +21,7 @@ async def send_slack_notification(webhook_url: str, report_summary: dict) -> boo
     blocks = [
         {
             "type": "header",
-            "text": {"type": "plain_text", "text": "InfraSim Simulation Report"},
+            "text": {"type": "plain_text", "text": "ChaosProof Simulation Report"},
         },
         {
             "type": "section",
@@ -44,7 +44,7 @@ async def send_slack_notification(webhook_url: str, report_summary: dict) -> boo
                     "type": "mrkdwn",
                     "text": (
                         ":rotating_light: *Critical findings detected!* "
-                        "Run `infrasim analyze` for recommendations."
+                        "Run `chaosproof analyze` for recommendations."
                     ),
                 },
             }
@@ -70,11 +70,11 @@ async def send_pagerduty_event(routing_key: str, report_summary: dict) -> bool:
         "event_action": "trigger",
         "payload": {
             "summary": (
-                f"InfraSim: {report_summary['critical_count']} "
+                f"ChaosProof: {report_summary['critical_count']} "
                 "critical infrastructure risks detected"
             ),
             "severity": "critical",
-            "source": "infrasim",
+            "source": "chaosproof",
             "custom_details": report_summary,
         },
     }

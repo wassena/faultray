@@ -12,13 +12,13 @@ from infrasim.reporter.report import print_infrastructure_summary, print_simulat
 from infrasim.simulator.engine import SimulationEngine
 
 app = typer.Typer(
-    name="infrasim",
-    help="Virtual infrastructure chaos engineering simulator",
+    name="chaosproof",
+    help="ChaosProof — Zero-risk infrastructure chaos engineering simulator",
     no_args_is_help=True,
 )
 console = Console()
 
-DEFAULT_MODEL_PATH = Path("infrasim-model.json")
+DEFAULT_MODEL_PATH = Path("chaosproof-model.json")
 
 
 def _print_dynamic_results(results: list, con: Console) -> None:
@@ -181,7 +181,7 @@ def _print_ops_results(result: "OpsSimulationResult", con: Console) -> None:  # 
     con.print()
     con.print(Panel(
         summary_text,
-        title="[bold]InfraSim Operational Simulation Report[/]",
+        title="[bold]ChaosProof Operational Simulation Report[/]",
         border_style=avail_color,
     ))
 
@@ -365,7 +365,7 @@ def _load_graph_for_analysis(
 
     if not model.exists():
         console.print(f"[red]Model file not found: {model}[/]")
-        console.print("Run [cyan]infrasim scan[/] or [cyan]infrasim load[/] first.")
+        console.print("Run [cyan]chaosproof scan[/] or [cyan]chaosproof load[/] first.")
         raise typer.Exit(1)
 
     if str(model).endswith((".yaml", ".yml")):

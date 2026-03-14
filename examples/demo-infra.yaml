@@ -1,7 +1,7 @@
-# InfraSim - Example infrastructure definition
+# ChaosProof - Example infrastructure definition
 #
 # Load with:
-#   infrasim load examples/demo-infra.yaml
+#   chaosproof load examples/demo-infra.yaml
 #
 # This describes a typical web application stack:
 #   nginx (load balancer) -> app servers -> PostgreSQL + Redis + RabbitMQ

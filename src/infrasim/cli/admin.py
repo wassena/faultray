@@ -47,7 +47,7 @@ def demo(
         from infrasim.api.server import set_graph
 
         set_graph(graph)
-        console.print(f"\n[green]Starting InfraSim dashboard at http://{host}:{port}[/]")
+        console.print(f"\n[green]Starting ChaosProof dashboard at http://{host}:{port}[/]")
         uvicorn.run("infrasim.api.server:app", host=host, port=port, log_level="info")
 
 
@@ -75,14 +75,14 @@ def serve(
 
     # Pass Prometheus settings via env vars so the FastAPI lifespan can pick them up
     if prometheus_url:
-        os.environ["INFRASIM_PROMETHEUS_URL"] = prometheus_url
-        os.environ["INFRASIM_PROMETHEUS_INTERVAL"] = str(prometheus_interval)
+        os.environ["CHAOSPROOF_PROMETHEUS_URL"] = prometheus_url
+        os.environ["CHAOSPROOF_PROMETHEUS_INTERVAL"] = str(prometheus_interval)
         console.print(
             f"[cyan]Prometheus monitoring enabled: {prometheus_url} "
             f"(interval={prometheus_interval}s)[/]"
         )
 
-    console.print(f"[green]Starting InfraSim dashboard at http://{host}:{port}[/]")
+    console.print(f"[green]Starting ChaosProof dashboard at http://{host}:{port}[/]")
     uvicorn.run("infrasim.api.server:app", host=host, port=port, log_level="info")
 
 

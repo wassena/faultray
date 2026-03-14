@@ -1,17 +1,17 @@
-# Contributing to InfraSim
+# Contributing to ChaosProof
 
-Thank you for your interest in contributing to InfraSim!
+Thank you for your interest in contributing to ChaosProof!
 
-# InfraSim へのコントリビューション
+# ChaosProof へのコントリビューション
 
-InfraSim への貢献に興味を持っていただきありがとうございます！
+ChaosProof への貢献に興味を持っていただきありがとうございます！
 
 ## Quick Start / クイックスタート
 
 ```bash
 # Clone the repository
 git clone https://github.com/mattyopon/infrasim.git
-cd infrasim
+cd chaosproof
 
 # Create virtual environment
 python -m venv .venv
@@ -28,7 +28,7 @@ pytest tests/ -v
 ruff check src/ tests/
 
 # Run the demo
-infrasim demo
+chaosproof demo
 ```
 
 ## Development Guidelines / 開発ガイドライン
@@ -46,7 +46,7 @@ infrasim demo
 
 ### Commit Messages
 - Use conventional commits: `feat:`, `fix:`, `docs:`, `test:`, `refactor:`
-- Include version bump in feat/fix commits (e.g., `feat: InfraSim vX.Y - description`)
+- Include version bump in feat/fix commits (e.g., `feat: ChaosProof vX.Y - description`)
 
 ### Pull Requests
 1. Fork the repository
