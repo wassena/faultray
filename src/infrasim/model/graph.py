@@ -107,7 +107,8 @@ class InfraGraph:
         """Calculate overall resilience score (0-100).
 
         Factors:
-        - Single points of failure (components with no replicas and dependents)
+        - Single points of failure (weighted by dependency type)
+        - Failover and autoscaling reduce SPOF penalty
         - Average utilization headroom
         - Dependency chain depth
         """
@@ -115,13 +116,34 @@ class InfraGraph:
             return 0.0
 
         score = 100.0
-        total_components = len(self._components)
 
-        # Penalize single points of failure
+        # Penalize single points of failure, weighted by dependency type
         for comp in self._components.values():
             dependents = self.get_dependents(comp.id)
             if comp.replicas <= 1 and len(dependents) > 0:
-                penalty = min(20, len(dependents) * 5)
+                # Weight by dependency type: requires=1.0, optional=0.3, async=0.1
+                weighted_deps = 0.0
+                for dep_comp in dependents:
+                    edge = self.get_dependency_edge(dep_comp.id, comp.id)
+                    if edge:
+                        dep_type = edge.dependency_type
+                        if dep_type == "requires":
+                            weighted_deps += 1.0
+                        elif dep_type == "optional":
+                            weighted_deps += 0.3
+                        else:  # async
+                            weighted_deps += 0.1
+                    else:
+                        weighted_deps += 1.0
+
+                penalty = min(20, weighted_deps * 5)
+
+                # Reduce penalty for components with failover or autoscaling
+                if comp.failover.enabled:
+                    penalty *= 0.3  # failover greatly reduces SPOF risk
+                if comp.autoscaling.enabled:
+                    penalty *= 0.5  # autoscaling reduces capacity risk
+
                 score -= penalty
 
         # Penalize high utilization
