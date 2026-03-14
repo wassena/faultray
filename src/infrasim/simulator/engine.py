@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 
 from infrasim.model.graph import InfraGraph
 from infrasim.simulator.cascade import CascadeChain, CascadeEngine
 from infrasim.simulator.scenarios import Scenario, generate_default_scenarios
+
+logger = logging.getLogger(__name__)
+
+MAX_SCENARIOS = 1000
 
 
 @dataclass
@@ -124,6 +129,14 @@ class SimulationEngine:
 
     def run_scenarios(self, scenarios: list[Scenario]) -> SimulationReport:
         """Run a list of scenarios and generate a report."""
+        if len(scenarios) > MAX_SCENARIOS:
+            logger.warning(
+                "Scenario count %d exceeds limit, truncating to %d",
+                len(scenarios),
+                MAX_SCENARIOS,
+            )
+            scenarios = scenarios[:MAX_SCENARIOS]
+
         results = []
         for scenario in scenarios:
             result = self.run_scenario(scenario)

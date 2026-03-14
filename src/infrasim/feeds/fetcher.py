@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -9,6 +10,8 @@ from datetime import datetime
 import httpx
 
 from infrasim.feeds.sources import FeedSource
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -47,7 +50,8 @@ def _parse_rss(xml_bytes: bytes, source: FeedSource) -> list[FeedArticle]:
     articles: list[FeedArticle] = []
     try:
         root = ET.fromstring(xml_bytes)
-    except ET.ParseError:
+    except ET.ParseError as e:
+        logger.warning("Failed to parse RSS from %s: %s", source.name, e)
         return articles
 
     # RSS items live under <channel><item>
@@ -77,7 +81,8 @@ def _parse_atom(xml_bytes: bytes, source: FeedSource) -> list[FeedArticle]:
     articles: list[FeedArticle] = []
     try:
         root = ET.fromstring(xml_bytes)
-    except ET.ParseError:
+    except ET.ParseError as e:
+        logger.warning("Failed to parse Atom from %s: %s", source.name, e)
         return articles
 
     for entry in root.iter():

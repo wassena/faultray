@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from pathlib import Path
+from xml.sax.saxutils import escape
 
 from jinja2 import Environment, FileSystemLoader
 
@@ -208,6 +209,7 @@ def _build_dependency_svg(graph: InfraGraph) -> str:
 
         # Truncate long names
         label = comp.name if len(comp.name) <= 20 else comp.name[:18] + ".."
+        label = escape(label)  # Sanitize for XML/SVG
         text_x = x + node_w / 2
         text_y = y + node_h / 2 + 5
         parts.append(
