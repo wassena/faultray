@@ -2,15 +2,20 @@
 
 from __future__ import annotations
 
+import json
+import logging
+from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from infrasim.model.graph import InfraGraph
 from infrasim.simulator.engine import SimulationEngine
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Module-level state
@@ -21,12 +26,30 @@ _last_report = None
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
+
+# ---------------------------------------------------------------------------
+# Lifespan — initialise database on startup
+# ---------------------------------------------------------------------------
+
+@asynccontextmanager
+async def lifespan(application: FastAPI):
+    """Initialise the database when the app starts."""
+    from infrasim.api.database import init_db
+    try:
+        await init_db()
+        logger.info("InfraSim database initialised.")
+    except Exception:
+        logger.warning("Database initialisation skipped (aiosqlite may not be installed).")
+    yield
+
+
 app = FastAPI(
     title="InfraSim API",
     description="Virtual infrastructure chaos engineering platform — simulate failures without touching production",
-    version="0.1.0",
+    version="0.2.0",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 
@@ -98,8 +121,47 @@ def _report_to_dict(report) -> dict:
     }
 
 
+async def _save_run(report_dict: dict, engine_type: str = "static") -> int | None:
+    """Persist a simulation run to the database. Returns the row id or None."""
+    try:
+        from infrasim.api.database import SimulationRunRow, get_session_factory
+
+        session_factory = get_session_factory()
+        async with session_factory() as session:
+            row = SimulationRunRow(
+                engine_type=engine_type,
+                config_json=None,
+                results_json=json.dumps(report_dict),
+                risk_score=report_dict.get("resilience_score"),
+            )
+            session.add(row)
+            await session.commit()
+            await session.refresh(row)
+            return row.id
+    except Exception:
+        logger.debug("Could not persist simulation run.", exc_info=True)
+        return None
+
+
 # ---------------------------------------------------------------------------
-# HTML routes
+# Auth dependency — lazy import so the app still works without aiosqlite
+# ---------------------------------------------------------------------------
+
+async def _optional_user(request: Request):
+    """Try to resolve the current user; return None if auth module unavailable."""
+    try:
+        from infrasim.api.auth import get_current_user
+        from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+
+        scheme = HTTPBearer(auto_error=False)
+        credentials = await scheme(request)
+        return await get_current_user(request, credentials)
+    except Exception:
+        return None
+
+
+# ---------------------------------------------------------------------------
+# HTML routes (public)
 # ---------------------------------------------------------------------------
 
 @app.get("/", response_class=HTMLResponse)
@@ -188,11 +250,18 @@ async def simulation_run_get():
 
     engine = SimulationEngine(graph)
     _last_report = engine.run_all_defaults()
-    return JSONResponse(_report_to_dict(_last_report))
+    report_dict = _report_to_dict(_last_report)
+
+    # Persist to database
+    run_id = await _save_run(report_dict, engine_type="static")
+    if run_id is not None:
+        report_dict["run_id"] = run_id
+
+    return JSONResponse(report_dict)
 
 
 @app.post("/api/simulate", response_class=JSONResponse)
-async def api_simulate():
+async def api_simulate(user=Depends(_optional_user)):
     """Run simulation and return JSON results (POST endpoint)."""
     global _last_report
     graph = get_graph()
@@ -201,11 +270,18 @@ async def api_simulate():
 
     engine = SimulationEngine(graph)
     _last_report = engine.run_all_defaults()
-    return JSONResponse(_report_to_dict(_last_report))
+    report_dict = _report_to_dict(_last_report)
+
+    # Persist to database
+    run_id = await _save_run(report_dict, engine_type="static")
+    if run_id is not None:
+        report_dict["run_id"] = run_id
+
+    return JSONResponse(report_dict)
 
 
 @app.get("/api/graph-data", response_class=JSONResponse)
-async def api_graph_data():
+async def api_graph_data(user=Depends(_optional_user)):
     """Return graph data as nodes + edges for D3.js."""
     graph = get_graph()
     data = graph.to_dict()
@@ -254,3 +330,98 @@ async def load_demo(request: Request):
 
     from fastapi.responses import RedirectResponse
     return RedirectResponse(url="/", status_code=303)
+
+
+# ---------------------------------------------------------------------------
+# Simulation runs CRUD  (persistence layer)
+# ---------------------------------------------------------------------------
+
+@app.get("/api/runs", response_class=JSONResponse)
+async def list_runs(
+    limit: int = 50,
+    offset: int = 0,
+    user=Depends(_optional_user),
+):
+    """List past simulation runs (newest first)."""
+    try:
+        from infrasim.api.database import SimulationRunRow, get_session_factory
+        from sqlalchemy import select
+
+        session_factory = get_session_factory()
+        async with session_factory() as session:
+            stmt = (
+                select(SimulationRunRow)
+                .order_by(SimulationRunRow.created_at.desc())
+                .offset(offset)
+                .limit(limit)
+            )
+            result = await session.execute(stmt)
+            rows = result.scalars().all()
+
+            runs = []
+            for row in rows:
+                runs.append({
+                    "id": row.id,
+                    "project_id": row.project_id,
+                    "engine_type": row.engine_type,
+                    "risk_score": row.risk_score,
+                    "created_at": row.created_at.isoformat() if row.created_at else None,
+                })
+            return JSONResponse({"runs": runs, "count": len(runs)})
+    except Exception as exc:
+        logger.debug("Could not list runs: %s", exc)
+        return JSONResponse({"runs": [], "count": 0, "note": "Database not available"})
+
+
+@app.get("/api/runs/{run_id}", response_class=JSONResponse)
+async def get_run(run_id: int, user=Depends(_optional_user)):
+    """Get a specific simulation run by ID."""
+    try:
+        from infrasim.api.database import SimulationRunRow, get_session_factory
+        from sqlalchemy import select
+
+        session_factory = get_session_factory()
+        async with session_factory() as session:
+            stmt = select(SimulationRunRow).where(SimulationRunRow.id == run_id)
+            result = await session.execute(stmt)
+            row = result.scalar_one_or_none()
+
+            if row is None:
+                return JSONResponse({"error": "Run not found"}, status_code=404)
+
+            return JSONResponse({
+                "id": row.id,
+                "project_id": row.project_id,
+                "engine_type": row.engine_type,
+                "config_json": json.loads(row.config_json) if row.config_json else None,
+                "results_json": json.loads(row.results_json) if row.results_json else None,
+                "risk_score": row.risk_score,
+                "created_at": row.created_at.isoformat() if row.created_at else None,
+            })
+    except Exception as exc:
+        logger.debug("Could not get run: %s", exc)
+        return JSONResponse({"error": "Database not available"}, status_code=503)
+
+
+@app.delete("/api/runs/{run_id}", response_class=JSONResponse)
+async def delete_run(run_id: int, user=Depends(_optional_user)):
+    """Delete a simulation run by ID."""
+    try:
+        from infrasim.api.database import SimulationRunRow, get_session_factory
+        from sqlalchemy import select
+
+        session_factory = get_session_factory()
+        async with session_factory() as session:
+            stmt = select(SimulationRunRow).where(SimulationRunRow.id == run_id)
+            result = await session.execute(stmt)
+            row = result.scalar_one_or_none()
+
+            if row is None:
+                return JSONResponse({"error": "Run not found"}, status_code=404)
+
+            await session.delete(row)
+            await session.commit()
+            return JSONResponse({"deleted": True, "id": run_id})
+    except Exception as exc:
+        logger.debug("Could not delete run: %s", exc)
+        return JSONResponse({"error": "Database not available"}, status_code=503)

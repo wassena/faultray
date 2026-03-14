@@ -52,6 +52,8 @@ def scan(
 def simulate(
     model: Path = typer.Option(DEFAULT_MODEL_PATH, "--model", "-m", help="Model file path"),
     html: Path | None = typer.Option(None, "--html", help="Export HTML report to this path"),
+    csv_path: Path | None = typer.Option(None, "--csv", help="Export results as CSV to this path"),
+    json_path: Path | None = typer.Option(None, "--json", help="Export results as JSON to this path"),
     dynamic: bool = typer.Option(False, "--dynamic", "-d", help="Run dynamic time-stepped simulation"),
 ) -> None:
     """Run chaos simulation against infrastructure model."""
@@ -85,6 +87,18 @@ def simulate(
 
         save_html_report(report, graph, html)
         console.print(f"\n[green]HTML report saved to {html}[/]")
+
+    if csv_path:
+        from infrasim.reporter.export import export_csv
+
+        out = export_csv(report, csv_path)
+        console.print(f"\n[green]CSV report saved to {out}[/]")
+
+    if json_path:
+        from infrasim.reporter.export import export_json
+
+        out = export_json(report, json_path)
+        console.print(f"\n[green]JSON report saved to {out}[/]")
 
 
 def _print_dynamic_results(results: list, con: Console) -> None:
@@ -1217,3 +1231,43 @@ def capacity(
 
     # ---- Summary ----
     console.print(f"\n{report.summary}")
+
+
+# ---------------------------------------------------------------------------
+# API key management
+# ---------------------------------------------------------------------------
+
+
+@app.command()
+def create_api_key(
+    email: str = typer.Option(..., "--email", "-e", help="User email address"),
+    name: str = typer.Option(..., "--name", "-n", help="User display name"),
+) -> None:
+    """Generate a new API key for InfraSim web API authentication."""
+    from infrasim.api.auth import generate_api_key, hash_api_key
+    from infrasim.api.database import UserRow, init_db, get_session_factory, reset_engine
+
+    async def _create() -> str:
+        await init_db()
+        api_key = generate_api_key()
+        key_hash = hash_api_key(api_key)
+
+        session_factory = get_session_factory()
+        async with session_factory() as session:
+            user = UserRow(email=email, name=name, api_key_hash=key_hash)
+            session.add(user)
+            await session.commit()
+
+        reset_engine()
+        return api_key
+
+    try:
+        api_key = asyncio.run(_create())
+    except Exception as exc:
+        console.print(f"[red]Failed to create API key: {exc}[/]")
+        raise typer.Exit(1)
+
+    console.print(f"\n[green]API key created for {name} ({email})[/]")
+    console.print(f"\n[bold]API Key:[/] {api_key}")
+    console.print("\n[dim]Store this key securely. It cannot be recovered.[/]")
+    console.print("[dim]Use it as: Authorization: Bearer <api_key>[/]")

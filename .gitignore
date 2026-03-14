@@ -11,3 +11,4 @@ build/
 .pytest_cache/
 infrasim-model.json
 *.docx
+.claude/worktrees/

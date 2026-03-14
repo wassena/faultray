@@ -18,6 +18,8 @@ dependencies = [
     "jinja2>=3.1",
     "httpx>=0.28",
     "pyyaml>=6.0",
+    "sqlalchemy>=2.0",
+    "aiosqlite>=0.20",
 ]
 
 [project.optional-dependencies]
@@ -39,3 +41,4 @@ line-length = 100
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+asyncio_mode = "auto"
