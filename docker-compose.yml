@@ -1,0 +1,36 @@
+services:
+  # Web dashboard mode
+  web:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - infrasim-data:/root/.infrasim
+      - ./examples:/app/examples:ro
+    command: ["infrasim", "serve", "--host", "0.0.0.0", "--port", "8000"]
+
+  # Demo mode (loads sample infra + opens dashboard)
+  demo:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - infrasim-data:/root/.infrasim
+    command: ["infrasim", "demo", "--web"]
+    profiles:
+      - demo
+
+  # CLI mode (for running simulations)
+  cli:
+    build: .
+    volumes:
+      - infrasim-data:/root/.infrasim
+      - ./examples:/app/examples
+      - ./reports:/app/reports
+    entrypoint: ["infrasim"]
+    command: ["--help"]
+    profiles:
+      - cli
+
+volumes:
+  infrasim-data:

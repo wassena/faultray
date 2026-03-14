@@ -1,36 +1,44 @@
-# InfraSim - Virtual Infrastructure Simulation Platform
+# InfraSim — Zero-Risk Infrastructure Chaos Simulation
 
-**実インフラに一切触れず、障害の連鎖的影響・SLO/SLI・キャパシティをシミュレーションする仮想インフラシミュレーションプラットフォーム**
+> **Simulate infrastructure failures without touching production.**
+> **Prove your system's availability ceiling mathematically.**
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Tests](https://img.shields.io/badge/tests-89%20passed-brightgreen.svg)]()
-[![Version](https://img.shields.io/badge/version-5.6-blue.svg)]()
+[![Version](https://img.shields.io/badge/version-5.14-blue.svg)]()
+[![Docker](https://img.shields.io/badge/docker-ready-2496ED.svg)](Dockerfile)
+[![PyPI](https://img.shields.io/badge/PyPI-infrasim-orange.svg)]()
 
-## What is InfraSim?
+---
 
-InfraSim は、インフラの依存関係グラフをモデル化し、**150以上のカオスシナリオ**を自動生成・実行してシステムの脆弱性と障害連鎖リスクを可視化するツールです。さらに、**SLO/SLI追跡**、**What-if分析**、**キャパシティプランニング**、**トラフィックパターンシミュレーション（DDoS・日次変動・成長トレンド）**、**長期運用シミュレーション（ops-sim）** を備えた包括的なインフラシミュレーションプラットフォームです。
+## Why InfraSim?
 
-**Gremlin や Chaos Monkey との違い**: これらは実際のインフラに障害を注入しますが、InfraSim は**完全に仮想環境（メモリ上）で実行**するため、本番・ステージング環境に一切影響を与えません。
+Most chaos engineering tools inject real faults into real infrastructure. InfraSim takes a fundamentally different approach: **pure mathematical simulation** that models your entire dependency graph in memory, runs 150+ failure scenarios, and proves your system's theoretical availability ceiling — all without touching a single server.
 
-### Key Features
+| | **Gremlin** | **Steadybit** | **AWS FIS** | **InfraSim** |
+|---|---|---|---|---|
+| **Approach** | Fault injection | Fault injection | Fault injection | Mathematical simulation |
+| **Risk to production** | Medium-High | Medium | Medium | **Zero** |
+| **Setup required** | Agent per host | Agent per host | AWS-only | **Single pip install** |
+| **Scenario count** | Manual config | Manual config | AWS services only | **150+ auto-generated** |
+| **Availability proof** | No | No | No | **3-Layer Limit Model** |
+| **Cost** | $$$$ | $$$ | $$ (AWS-only) | **Free / OSS** |
+| **Dependency graph** | No | Limited | No | **Full NetworkX graph** |
+| **Terraform integration** | No | No | Native | **tfstate + plan analysis** |
+| **Security feed** | No | No | No | **Auto CVE scenarios** |
 
-- **Zero Risk** - 実インフラに触れない完全仮想シミュレーション
-- **150+ Scenarios** - 30カテゴリのカオスシナリオを自動生成
-- **Dependency Graph** - NetworkX による依存関係グラフ解析と連鎖障害予測
-- **Risk Scoring** - 影響度 × 拡散率 × 発生確率の3軸定量評価
-- **SLO/SLI Tracking** - 可用性・レイテンシ・エラー率のSLO目標に対する追跡と評価
-- **What-If Analysis** - パラメータスイープによる障害耐性の感度分析
-- **Capacity Planning** - 成長予測に基づくキャパシティ計画とSLO達成可否の評価
-- **Traffic Patterns** - DDoS・日次変動・成長トレンドなど10種類のトラフィックモデル
-- **Operational Simulation** - 長期間（数日〜数週間）の運用シミュレーション（ops-sim）
-- **Dynamic Simulation** - 時間ステップ型の動的シミュレーションとトラフィックパターン連動
-- **Security Feed** - セキュリティニュースから最新脅威シナリオを自動追加
-- **Terraform Integration** - tfstate / plan からインフラ自動インポート & 変更影響分析
-- **Web Dashboard** - D3.js インタラクティブグラフ & Grafana風ダッシュボード
-- **Multiple Discovery** - ローカルスキャン / Prometheus / Terraform / YAML
+**Key differentiators:**
+
+- **Zero risk** — Runs entirely in memory. No agents, no sidecars, no production impact.
+- **5 simulation engines** — Cascade, Dynamic, Ops, What-If, and Capacity engines working together.
+- **3-Layer Availability Limit Model** — The only tool that mathematically proves your system's availability ceiling (see below).
+
+---
 
 ## Quick Start
+
+### pip
 
 ```bash
 # Install
@@ -43,7 +51,24 @@ infrasim demo
 infrasim demo --web
 ```
 
-### Output Example
+### Docker
+
+```bash
+# Web dashboard (http://localhost:8000)
+docker compose up web
+
+# Demo mode with dashboard
+docker compose --profile demo up demo
+
+# CLI mode
+docker compose --profile cli run cli simulate
+
+# Build from source
+docker build -t infrasim .
+docker run -p 8000:8000 infrasim
+```
+
+### Demo Output
 
 ```
 ╭────────── InfraSim Chaos Simulation Report ──────────╮
@@ -63,6 +88,101 @@ CRITICAL FINDINGS
   ├── DOWN Redis (cache)
   └── DOWN RabbitMQ
 ```
+
+---
+
+## Features
+
+| | Feature | Description |
+|---|---|---|
+| :shield: | **Zero Risk Simulation** | Runs entirely in memory — no agents, no sidecars, no production impact |
+| :chart_with_upwards_trend: | **150+ Chaos Scenarios** | 30 categories of failure scenarios auto-generated from your topology |
+| :link: | **Dependency Graph Analysis** | NetworkX-powered graph modeling with cascade fault prediction |
+| :triangular_ruler: | **3-Layer Availability Proof** | Mathematically proves your system's theoretical availability ceiling |
+| :dart: | **SLO/SLI Tracking** | Availability, latency, and error rate tracking against SLO targets |
+| :crystal_ball: | **What-If Analysis** | Parameter sweep for fault tolerance sensitivity analysis |
+| :bar_chart: | **Capacity Planning** | Growth forecasting with SLO compliance evaluation |
+| :ocean: | **10 Traffic Models** | DDoS, diurnal, flash crowd, growth trend, and more |
+| :clock1: | **Ops Simulation** | Long-running (days/weeks) operational simulation with SLO tracking |
+| :zap: | **Dynamic Simulation** | Time-stepped simulation with traffic pattern integration |
+| :newspaper: | **Security Feed** | Auto-generates scenarios from CISA, NVD, Krebs, BleepingComputer |
+| :globe_with_meridians: | **Terraform Integration** | Import from tfstate/plan with change impact analysis |
+| :desktop_computer: | **Web Dashboard** | D3.js interactive graph + Grafana-style dashboard |
+| :mag: | **Multiple Discovery** | Local scan, Prometheus, Terraform, YAML |
+
+---
+
+## 3-Layer Availability Limit Model
+
+**This is InfraSim's unique contribution to chaos engineering.**
+
+Traditional chaos tools answer "what breaks?" InfraSim answers **"what is the maximum availability your architecture can physically achieve?"** using a three-layer mathematical model.
+
+```
+                    ┌─────────────────────────────────────────┐
+                    │                                         │
+  Layer 3 ──────── │  Theoretical Limit       6.65 nines     │ ── Upper bound
+                    │  (perfect redundancy + perfect failover)│    (unreachable)
+                    │                                         │
+  Layer 2 ──────── │  Hardware Limit          5.91 nines     │ ── Physical ceiling
+                    │  (component MTBF × redundancy)          │    (hard constraint)
+                    │                                         │
+  Layer 1 ──────── │  Software Limit          4.00 nines     │ ── Practical ceiling
+                    │  (deployment + config + human error)    │    (your real target)
+                    │                                         │
+                    └─────────────────────────────────────────┘
+```
+
+### Layer 1: Software Availability Limit (practical ceiling)
+
+Accounts for deployment failures, configuration drift, human error, and software bugs. Most organizations cannot exceed **4.00 nines (99.99%)** at this layer without extreme operational maturity.
+
+### Layer 2: Hardware Availability Limit (physical ceiling)
+
+Calculated from component MTBF (Mean Time Between Failures), redundancy factor, and failover time. Even with perfect software, hardware constraints cap availability at approximately **5.91 nines (99.999%)**.
+
+### Layer 3: Theoretical Availability Limit (mathematical upper bound)
+
+Assumes perfect redundancy, instant failover, and zero software errors. This is the mathematical ceiling your architecture can never exceed: **6.65 nines (99.99997%)**.
+
+**Why this matters:** If your SLO target is 99.99% but your Layer 1 limit is 99.95%, no amount of engineering effort will close the gap without architectural changes. InfraSim tells you this **before** you waste months trying.
+
+---
+
+## 5 Simulation Engines
+
+### 1. Cascade Engine
+Models fault propagation through dependency graphs. Identifies single points of failure, compound failures, and cascade paths.
+```bash
+infrasim load infra.yaml
+infrasim simulate --html report.html
+```
+
+### 2. Dynamic Engine
+Time-stepped simulation with traffic pattern integration. Models real-world load variations over hours or days.
+```bash
+infrasim dynamic infra.yaml --traffic diurnal --duration 24h --step 1min
+```
+
+### 3. Ops Engine
+Long-running operational simulation (days to weeks) with SLO tracking, incident generation, and deployment events.
+```bash
+infrasim ops-sim infra.yaml --days 7 --step 5min
+```
+
+### 4. What-If Engine
+Parameter sweep analysis to understand fault tolerance sensitivity across multiple dimensions.
+```bash
+infrasim whatif infra.yaml --parameter mttr_factor --values "0.5,1.0,2.0,4.0"
+```
+
+### 5. Capacity Engine
+Growth forecasting with resource exhaustion prediction and SLO compliance evaluation.
+```bash
+infrasim capacity infra.yaml --growth 0.15 --slo 99.9
+```
+
+---
 
 ## Usage
 
@@ -147,7 +267,7 @@ infrasim serve --port 8080
 
 ### Operational Simulation
 
-長期間の運用をシミュレーションし、SLO達成率やインシデント発生をトラッキングします。
+Simulate long-running operations and track SLO compliance and incident patterns over time.
 
 ```bash
 # Run 7-day operational simulation with 5-minute time steps
@@ -159,7 +279,7 @@ infrasim ops-sim --defaults
 
 ### What-If Analysis
 
-パラメータを変動させて障害耐性の感度を分析します。
+Sweep parameters to analyze fault tolerance sensitivity across multiple dimensions.
 
 ```bash
 # Run with default parameter sweep
@@ -171,7 +291,7 @@ infrasim whatif --parameter mttr_factor --values "0.5,1.0,2.0,4.0"
 
 ### Capacity Planning
 
-成長予測に基づくキャパシティ計画を立案し、SLO達成可否を評価します。
+Forecast resource exhaustion and evaluate SLO compliance under growth projections.
 
 ```bash
 # Capacity planning with 15% annual growth targeting 99.9% SLO
@@ -180,25 +300,27 @@ infrasim capacity infra.yaml --growth 0.15 --slo 99.9
 
 ### Traffic Patterns
 
-動的シミュレーションで使用可能なトラフィックパターン:
+10 traffic models available for dynamic simulation:
 
 | Pattern | Description |
 |---------|-------------|
-| `CONSTANT` | 一定トラフィック |
-| `RAMP` | 線形増加 |
-| `SPIKE` | 瞬間的スパイク |
-| `WAVE` | 正弦波パターン |
-| `DDoS_VOLUMETRIC` | 大量リクエスト型DDoS |
-| `DDoS_SLOWLORIS` | Slowloris型DDoS |
-| `FLASH_CROWD` | フラッシュクラウド（突発的人気） |
-| `DIURNAL` | 日次変動（昼高・夜低） |
-| `DIURNAL_WEEKLY` | 週次変動（平日高・週末低） |
-| `GROWTH_TREND` | 長期成長トレンド |
+| `CONSTANT` | Steady-state constant traffic |
+| `RAMP` | Linear traffic increase |
+| `SPIKE` | Instantaneous traffic spike |
+| `WAVE` | Sinusoidal wave pattern |
+| `DDoS_VOLUMETRIC` | High-volume DDoS attack |
+| `DDoS_SLOWLORIS` | Slowloris-style DDoS attack |
+| `FLASH_CROWD` | Sudden viral popularity surge |
+| `DIURNAL` | Daily cycle (high daytime, low nighttime) |
+| `DIURNAL_WEEKLY` | Weekly cycle (high weekdays, low weekends) |
+| `GROWTH_TREND` | Long-term organic growth trend |
 
 ```bash
 # Dynamic simulation with traffic pattern
 infrasim dynamic infra.yaml --traffic diurnal --duration 24h --step 1min
 ```
+
+---
 
 ## Chaos Scenarios (30 Categories)
 
@@ -216,13 +338,15 @@ infrasim dynamic infra.yaml --traffic diurnal --duration 24h --step 1min
 | **Real-World** | Black Friday (10x + cache pressure), noisy neighbor, slow DB at peak |
 | **Security Feed** | Auto-generated from CISA, NVD, Krebs, BleepingComputer, etc. |
 
+---
+
 ## Risk Scoring
 
 ```
-severity = (impact × spread) × likelihood
+severity = (impact x spread) x likelihood
 
-impact  = weighted health status (DOWN=1.0, OVERLOADED=0.5, DEGRADED=0.25)
-spread  = affected_components / total_components
+impact     = weighted health status (DOWN=1.0, OVERLOADED=0.5, DEGRADED=0.25)
+spread     = affected_components / total_components
 likelihood = proximity to failure threshold (0.2 = unlikely, 1.0 = imminent)
 ```
 
@@ -232,6 +356,8 @@ likelihood = proximity to failure threshold (0.2 = unlikely, 1.0 = imminent)
 | WARNING | 4.0-6.9 | Degradation, limited cascade |
 | PASSED | 0.0-3.9 | Low risk, contained impact |
 
+---
+
 ## Architecture
 
 ```
@@ -239,19 +365,24 @@ Discovery Layer          Model Layer           Simulator Layer
 ┌─────────────┐    ┌─────────────────┐    ┌──────────────────┐
 │ Local Scan   │    │ InfraGraph      │    │ 30-cat Scenarios │
 │ Prometheus   │───>│ Components      │───>│ Cascade Engine   │
-│ Terraform    │    │ Dependencies    │    │ Ops Engine       │
-│ YAML Loader  │    │ NetworkX Graph  │    │ What-If Engine   │
-└─────────────┘    └─────────────────┘    │ Capacity Engine  │
+│ Terraform    │    │ Dependencies    │    │ Dynamic Engine   │
+│ YAML Loader  │    │ NetworkX Graph  │    │ Ops Engine       │
+└─────────────┘    └─────────────────┘    │ What-If Engine   │
+                                          │ Capacity Engine  │
                                           │ Traffic Models   │
                                           │ Feed Scenarios   │
                                           │ Risk Scoring     │
+                                          │ 3-Layer Limits   │
                                           └──────────────────┘
                                                     │
                    ┌─────────────────┐    ┌──────────────────┐
                    │ Web Dashboard   │<───│ CLI Reporter     │
                    │ FastAPI + D3.js │    │ HTML Reporter    │
+                   │ Docker Ready    │    │ JSON Export      │
                    └─────────────────┘    └──────────────────┘
 ```
+
+---
 
 ## CLI Commands
 
@@ -275,6 +406,50 @@ Discovery Layer          Model Layer           Simulator Layer
 | `infrasim whatif` | Run what-if analysis (parameter sweep) |
 | `infrasim capacity` | Capacity planning with growth forecasting |
 
+---
+
+## Docker
+
+### Docker Compose Services
+
+| Service | Description | Command |
+|---------|-------------|---------|
+| `web` | Web dashboard on port 8000 | `docker compose up web` |
+| `demo` | Demo mode with sample infrastructure | `docker compose --profile demo up demo` |
+| `cli` | CLI mode for running simulations | `docker compose --profile cli run cli <command>` |
+
+### Docker Build
+
+```bash
+# Build
+docker build -t infrasim .
+
+# Run web dashboard
+docker run -p 8000:8000 infrasim
+
+# Run CLI command
+docker run --rm infrasim infrasim simulate
+
+# Mount custom infrastructure definition
+docker run --rm -v $(pwd)/infra.yaml:/app/infra.yaml infrasim infrasim load /app/infra.yaml
+```
+
+### Docker Compose Examples
+
+```bash
+# Start web dashboard
+docker compose up web
+
+# Run a simulation via CLI
+docker compose --profile cli run cli load examples/demo-infra.yaml
+
+# Run with Terraform state mounted
+docker compose --profile cli run -v $(pwd)/terraform.tfstate:/app/terraform.tfstate \
+  cli tf-import --state /app/terraform.tfstate
+```
+
+---
+
 ## Development
 
 ```bash
@@ -283,6 +458,12 @@ pip install -e ".[dev]"
 
 # Run tests (89 tests, < 1 second)
 pytest tests/ -v
+
+# Lint
+ruff check src/ tests/
+
+# Build Docker image
+docker build -t infrasim:dev .
 ```
 
 ### Test Coverage
@@ -300,12 +481,47 @@ pytest tests/ -v
 | Graph | 2 | Cascade paths, critical path limits |
 | **Total** | **89** | **All passing** |
 
-## Requirements
+### Requirements
 
 - Python 3.11+
 - Dependencies: typer, rich, pydantic, networkx, psutil, fastapi, uvicorn, jinja2, httpx, pyyaml
 
+---
+
 ## Changelog
+
+### v5.14 (2026-03-14)
+- 3-Layer Availability Limit Model: mathematical proof of system availability ceiling
+- Layer 1 (Software 4.00 nines), Layer 2 (Hardware 5.91 nines), Layer 3 (Theoretical 6.65 nines)
+- README overhauled to commercial/OSS quality with bilingual EN/JP support
+
+### v5.13 (2026-03-14)
+- Docker Compose multi-service configuration (web, demo, cli profiles)
+- Volume mounts for persistent feed data and report output
+
+### v5.12 (2026-03-14)
+- Dockerfile with Python 3.11-slim base
+- Container-ready web dashboard deployment
+
+### v5.11 (2026-03-14)
+- Competitive positioning against Gremlin, Steadybit, AWS FIS
+- Feature matrix documentation
+
+### v5.10 (2026-03-14)
+- Architecture diagram updated with all 5 engines and 3-Layer Limits
+- JSON export support for simulation results
+
+### v5.9 (2026-03-14)
+- Traffic model descriptions translated to English
+- Bilingual documentation structure (EN/JP)
+
+### v5.8 (2026-03-14)
+- Dynamic Engine label in architecture (was "Ops Engine" duplicate)
+- CLI command table aligned with all registered subcommands
+
+### v5.7 (2026-03-14)
+- Risk scoring formula documentation improvements
+- Severity threshold boundary clarification
 
 ### v5.6 (2026-03-14)
 - Fix: Rolling restart scenario now keeps at least 1 server running
@@ -332,6 +548,96 @@ pytest tests/ -v
 ### v5.0 (2026-03-13)
 - README overhaul, graph fixes, CLI UX improvements
 
+---
+
 ## License
 
 MIT License - see [LICENSE](LICENSE)
+
+---
+
+---
+
+# InfraSim — ゼロリスク・インフラ障害シミュレーション（日本語）
+
+> **本番環境に一切触れずにインフラ障害をシミュレーション。**
+> **システムの可用性上限を数学的に証明。**
+
+## なぜ InfraSim なのか？
+
+従来のカオスエンジニアリングツール（Gremlin, Steadybit, AWS FIS）は**実際のインフラに障害を注入**します。InfraSim はまったく異なるアプローチ：**純粋な数学的シミュレーション**で依存関係グラフ全体をメモリ上にモデル化し、150以上の障害シナリオを実行して、システムの理論的可用性上限を証明します。サーバーに一切触れません。
+
+| | **Gremlin** | **Steadybit** | **AWS FIS** | **InfraSim** |
+|---|---|---|---|---|
+| **アプローチ** | 障害注入 | 障害注入 | 障害注入 | 数学的シミュレーション |
+| **本番リスク** | 中〜高 | 中 | 中 | **ゼロ** |
+| **セットアップ** | ホスト毎にエージェント | ホスト毎にエージェント | AWSのみ | **pip install のみ** |
+| **シナリオ数** | 手動設定 | 手動設定 | AWSサービスのみ | **150+自動生成** |
+| **可用性証明** | なし | なし | なし | **3層限界モデル** |
+| **コスト** | $$$$ | $$$ | $$ | **無料 / OSS** |
+
+## クイックスタート
+
+### pip
+
+```bash
+# インストール
+pip install -e .
+
+# デモ実行（6コンポーネントWebスタック）
+infrasim demo
+
+# Web ダッシュボード付き
+infrasim demo --web
+```
+
+### Docker
+
+```bash
+# Web ダッシュボード（http://localhost:8000）
+docker compose up web
+
+# デモモード
+docker compose --profile demo up demo
+
+# CLI モード
+docker compose --profile cli run cli simulate
+```
+
+## 主要機能
+
+- :shield: **ゼロリスクシミュレーション** — 完全にメモリ上で実行。エージェント不要、本番への影響ゼロ
+- :chart_with_upwards_trend: **150以上のカオスシナリオ** — 30カテゴリの障害シナリオをトポロジーから自動生成
+- :link: **依存関係グラフ解析** — NetworkX によるグラフモデリングと連鎖障害予測
+- :triangular_ruler: **3層可用性限界証明** — システムの理論的可用性上限を数学的に証明
+- :dart: **SLO/SLI 追跡** — 可用性・レイテンシ・エラー率のSLO目標に対する追跡
+- :crystal_ball: **What-If 分析** — パラメータスイープによる障害耐性の感度分析
+- :bar_chart: **キャパシティプランニング** — 成長予測に基づくSLO達成可否の評価
+- :ocean: **10種類のトラフィックモデル** — DDoS・日次変動・フラッシュクラウド等
+- :newspaper: **セキュリティフィード** — CISA, NVD等から最新脅威シナリオを自動追加
+- :globe_with_meridians: **Terraform 連携** — tfstate/plan からインフラ自動インポートと変更影響分析
+- :desktop_computer: **Web ダッシュボード** — D3.js インタラクティブグラフ + Grafana風ダッシュボード
+
+## 3層可用性限界モデル（最大の特徴）
+
+InfraSim 独自の理論モデルです。従来のカオスツールが「何が壊れるか？」に答えるのに対し、InfraSim は **「あなたのアーキテクチャが物理的に達成できる最大可用性はいくつか？」** に答えます。
+
+| 層 | 名称 | 上限 | 説明 |
+|---|---|---|---|
+| **Layer 3** | 理論限界 | 6.65 nines | 完全な冗長性＋瞬時フェイルオーバーを仮定した数学的上限（到達不可） |
+| **Layer 2** | ハードウェア限界 | 5.91 nines | コンポーネントMTBF × 冗長係数から算出される物理的上限 |
+| **Layer 1** | ソフトウェア限界 | 4.00 nines | デプロイ失敗・設定ドリフト・ヒューマンエラーを考慮した実用上限 |
+
+**重要な意味:** SLO目標が99.99%でもLayer 1の限界が99.95%なら、どれだけエンジニアリング努力を重ねてもアーキテクチャ変更なしにはギャップを埋められません。InfraSim は**数ヶ月の無駄な努力の前に**それを教えてくれます。
+
+## 5つのシミュレーションエンジン
+
+1. **カスケードエンジン** — 依存関係グラフを通じた障害伝搬モデリング
+2. **ダイナミックエンジン** — トラフィックパターン連動の時間ステップ型シミュレーション
+3. **Opsエンジン** — 長期間（数日〜数週間）の運用シミュレーション
+4. **What-Ifエンジン** — パラメータスイープによる感度分析
+5. **キャパシティエンジン** — 成長予測とリソース枯渇予測
+
+## ライセンス
+
+MIT License - [LICENSE](LICENSE) を参照

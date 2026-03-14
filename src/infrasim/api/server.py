@@ -21,7 +21,13 @@ _last_report = None
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
-app = FastAPI(title="InfraSim Dashboard", version="0.1.0")
+app = FastAPI(
+    title="InfraSim API",
+    description="Virtual infrastructure chaos engineering platform — simulate failures without touching production",
+    version="0.1.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+)
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 
 
@@ -185,7 +191,7 @@ async def simulation_run_get():
     return JSONResponse(_report_to_dict(_last_report))
 
 
-@app.post("/api/simulate")
+@app.post("/api/simulate", response_class=JSONResponse)
 async def api_simulate():
     """Run simulation and return JSON results (POST endpoint)."""
     global _last_report
@@ -198,7 +204,7 @@ async def api_simulate():
     return JSONResponse(_report_to_dict(_last_report))
 
 
-@app.get("/api/graph-data")
+@app.get("/api/graph-data", response_class=JSONResponse)
 async def api_graph_data():
     """Return graph data as nodes + edges for D3.js."""
     graph = get_graph()
