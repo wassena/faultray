@@ -4,6 +4,8 @@
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Tests](https://img.shields.io/badge/tests-89%20passed-brightgreen.svg)]()
+[![Version](https://img.shields.io/badge/version-5.6-blue.svg)]()
 
 ## What is InfraSim?
 
@@ -47,7 +49,7 @@ infrasim demo --web
 ╭────────── InfraSim Chaos Simulation Report ──────────╮
 │ Resilience Score: 36/100                             │
 │ Scenarios tested: 150                                │
-│ Critical: 7  Warning: 67  Passed: 76                 │
+│ Critical: 7  Warning: 66  Passed: 77                 │
 ╰──────────────────────────────────────────────────────╯
 
 CRITICAL FINDINGS
@@ -273,10 +275,62 @@ Discovery Layer          Model Layer           Simulator Layer
 | `infrasim whatif` | Run what-if analysis (parameter sweep) |
 | `infrasim capacity` | Capacity planning with growth forecasting |
 
+## Development
+
+```bash
+# Install in development mode
+pip install -e ".[dev]"
+
+# Run tests (89 tests, < 1 second)
+pytest tests/ -v
+```
+
+### Test Coverage
+
+| Module | Tests | Coverage |
+|--------|-------|----------|
+| Cascade Engine | 14 | Fault propagation, severity scoring, compound failures |
+| Dynamic Engine | 14 | CLI output, severity classification, boundary values |
+| Ops Engine | 9 | SLO tracking, traffic patterns, deployments |
+| Capacity Engine | 8 | Forecasting, right-sizing, SLO targets |
+| Scenarios | 4 | Rolling restart edge cases, scenario generation |
+| Traffic | 11 | All 10 traffic patterns + determinism |
+| Feeds | 11 | Analysis, scoring, store operations |
+| Loader | 10 | YAML parsing, validation, circular dependency detection |
+| Graph | 2 | Cascade paths, critical path limits |
+| **Total** | **89** | **All passing** |
+
 ## Requirements
 
 - Python 3.11+
 - Dependencies: typer, rich, pydantic, networkx, psutil, fastapi, uvicorn, jinja2, httpx, pyyaml
+
+## Changelog
+
+### v5.6 (2026-03-14)
+- Fix: Rolling restart scenario now keeps at least 1 server running
+- 4 new scenario edge case tests
+
+### v5.5 (2026-03-14)
+- Fix: Dynamic simulation results always showed 0 critical/0 warning (float vs string comparison)
+- Fix: `dynamic` command passed report object instead of results list
+- Fix: `--deploy-hour` validation (0-23 range)
+- 14 new dynamic CLI tests
+
+### v5.4 (2026-03-14)
+- Pydantic field_validators for input boundary defense
+
+### v5.3 (2026-03-13)
+- Fix TypeError in dynamic CLI command
+
+### v5.2 (2026-03-13)
+- Security hardening and robustness improvements
+
+### v5.1 (2026-03-13)
+- Consistency fixes, test coverage, CLI validation
+
+### v5.0 (2026-03-13)
+- README overhaul, graph fixes, CLI UX improvements
 
 ## License
 
