@@ -4,9 +4,28 @@ build-backend = "hatchling.build"
 
 [project]
 name = "infrasim"
-version = "0.1.0"
-description = "Virtual infrastructure chaos engineering simulator"
+version = "1.0.0"
+description = "Zero-risk infrastructure chaos engineering — simulate failures, prove availability ceilings, without touching production"
+readme = "README.md"
+license = {text = "MIT"}
 requires-python = ">=3.11"
+authors = [
+    {name = "Yutaro Maeda", email = "mattyopon@gmail.com"},
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: System :: Systems Administration",
+    "Topic :: Software Development :: Testing",
+    "Topic :: System :: Networking",
+    "Typing :: Typed",
+]
+keywords = ["chaos-engineering", "sre", "devops", "infrastructure", "simulation", "reliability", "slo"]
 dependencies = [
     "typer>=0.15",
     "rich>=13.0",
@@ -28,6 +47,13 @@ dev = [
     "pytest-asyncio>=0.24",
     "ruff>=0.8",
 ]
+
+[project.urls]
+Homepage = "https://github.com/mattyopon/infrasim"
+Documentation = "https://github.com/mattyopon/infrasim#readme"
+Repository = "https://github.com/mattyopon/infrasim"
+Issues = "https://github.com/mattyopon/infrasim/issues"
+Changelog = "https://github.com/mattyopon/infrasim#changelog"
 
 [project.scripts]
 infrasim = "infrasim.cli:app"
