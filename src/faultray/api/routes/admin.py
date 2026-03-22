@@ -68,6 +68,10 @@ async def settings_page(request: Request):
 @router.get("/auth/login/{provider}")
 async def oauth_login(provider: str):
     """Redirect to the OAuth provider's authorization page."""
+    import hashlib
+    import hmac
+    import secrets
+
     from faultray.api.oauth import OAuthConfig, generate_oauth_url
 
     config = OAuthConfig.from_env(provider)
@@ -77,15 +81,35 @@ async def oauth_login(provider: str):
             status_code=400,
         )
 
-    url = generate_oauth_url(config)
+    # Generate a random state token and sign it with the client secret
+    # so we can verify it in the callback without server-side session storage.
+    nonce = secrets.token_urlsafe(32)
+    signature = hmac.new(
+        config.client_secret.encode(), nonce.encode(), hashlib.sha256,
+    ).hexdigest()
+    state = f"{nonce}.{signature}"
+
+    url = generate_oauth_url(config, state=state)
     from fastapi.responses import RedirectResponse
 
-    return RedirectResponse(url=url)
+    response = RedirectResponse(url=url)
+    response.set_cookie(
+        key="oauth_state",
+        value=state,
+        httponly=True,
+        samesite="lax",
+        max_age=600,  # 10 minutes
+        secure=True,
+    )
+    return response
 
 
 @router.get("/auth/callback")
-async def oauth_callback(code: str = "", state: str = "", provider: str = "github"):
+async def oauth_callback(request: Request, code: str = "", state: str = "", provider: str = "github"):
     """Handle the OAuth callback."""
+    import hashlib
+    import hmac
+
     from faultray.api.oauth import OAuthConfig, exchange_code_for_token, get_user_profile
 
     config = OAuthConfig.from_env(provider)
@@ -97,6 +121,25 @@ async def oauth_callback(code: str = "", state: str = "", provider: str = "githu
 
     if not code:
         return JSONResponse({"error": "Missing authorization code"}, status_code=400)
+
+    # --- CSRF validation: verify the state parameter ---
+    stored_state = request.cookies.get("oauth_state", "")
+    if not state or not stored_state or state != stored_state:
+        logger.warning("OAuth CSRF check failed: state mismatch")
+        return JSONResponse({"error": "Invalid OAuth state parameter (CSRF check failed)"}, status_code=400)
+
+    # Verify the HMAC signature embedded in the state token
+    parts = state.split(".", 1)
+    if len(parts) != 2:
+        return JSONResponse({"error": "Malformed OAuth state token"}, status_code=400)
+
+    nonce, signature = parts
+    expected_sig = hmac.new(
+        config.client_secret.encode(), nonce.encode(), hashlib.sha256,
+    ).hexdigest()
+    if not hmac.compare_digest(signature, expected_sig):
+        logger.warning("OAuth CSRF check failed: HMAC signature mismatch")
+        return JSONResponse({"error": "Invalid OAuth state signature"}, status_code=400)
 
     try:
         access_token = await exchange_code_for_token(config, code)

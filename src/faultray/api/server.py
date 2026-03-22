@@ -10,6 +10,7 @@ Route handlers live in ``faultray.api.routes.*``.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import time
@@ -35,20 +36,29 @@ logger = logging.getLogger(__name__)
 class RateLimiter:
     """Simple in-memory rate limiter using a sliding window."""
 
+    MAX_KEYS = 10_000  # prevent unbounded memory growth
+
     def __init__(self, max_requests: int = 60, window_seconds: int = 60):
         self.max_requests = max_requests
         self.window = window_seconds
         self.requests: dict[str, list[float]] = defaultdict(list)
+        self._lock = asyncio.Lock()
 
-    def is_allowed(self, client_id: str) -> bool:
+    async def is_allowed(self, client_id: str) -> bool:
         now = time.time()
-        self.requests[client_id] = [
-            t for t in self.requests[client_id] if now - t < self.window
-        ]
-        if len(self.requests[client_id]) >= self.max_requests:
-            return False
-        self.requests[client_id].append(now)
-        return True
+        async with self._lock:
+            self.requests[client_id] = [
+                t for t in self.requests[client_id] if now - t < self.window
+            ]
+            if len(self.requests[client_id]) >= self.max_requests:
+                return False
+            self.requests[client_id].append(now)
+            # Periodic cleanup: remove keys with empty timestamp lists
+            if len(self.requests) > self.MAX_KEYS:
+                empty_keys = [k for k, v in self.requests.items() if not v]
+                for k in empty_keys:
+                    del self.requests[k]
+            return True
 
 
 _rate_limiter = RateLimiter()
@@ -153,12 +163,12 @@ async def lifespan(application: FastAPI):
 
     # Start Prometheus background monitor if configured
     _prom_monitor = None
-    prom_url = os.environ.get("FAULTRAY_PROMETHEUS_URL", os.environ.get("FAULTRAY_PROMETHEUS_URL", os.environ.get("FAULTRAY_PROMETHEUS_URL")))
+    prom_url = os.environ.get("FAULTRAY_PROMETHEUS_URL", os.environ.get("PROMETHEUS_URL"))
     if prom_url:
         try:
             from faultray.discovery.prometheus_monitor import PrometheusMonitor
 
-            interval = int(os.environ.get("FAULTRAY_PROMETHEUS_INTERVAL", os.environ.get("FAULTRAY_PROMETHEUS_INTERVAL", os.environ.get("FAULTRAY_PROMETHEUS_INTERVAL", "60"))))
+            interval = int(os.environ.get("FAULTRAY_PROMETHEUS_INTERVAL", os.environ.get("PROMETHEUS_INTERVAL", "60")))
             _prom_monitor = PrometheusMonitor(prom_url, get_graph(), interval)
             await _prom_monitor.start()
             logger.info("Prometheus monitor started: %s (interval=%ds)", prom_url, interval)
@@ -233,7 +243,7 @@ async def rate_limit_middleware(request: Request, call_next):
         client_ip = forwarded_for.split(",")[0].strip()
     else:
         client_ip = request.client.host if request.client else "unknown"
-    if not _rate_limiter.is_allowed(client_ip):
+    if not await _rate_limiter.is_allowed(client_ip):
         return JSONResponse(
             status_code=429,
             content={
@@ -306,7 +316,7 @@ _stripe_mgr = _StripeManager()
 
 
 @app.post("/api/billing/checkout", response_class=JSONResponse)
-async def billing_checkout(request: Request):
+async def billing_checkout(request: Request, user=Depends(_require_permission("manage_billing"))):
     """Create a Stripe Checkout Session and return the redirect URL."""
     if not _stripe_mgr.enabled:
         return JSONResponse(
@@ -372,7 +382,7 @@ async def stripe_webhook(request: Request):
 
 
 @app.get("/api/billing/portal", response_class=JSONResponse)
-async def billing_portal(request: Request, team_id: str = ""):
+async def billing_portal(request: Request, team_id: str = "", user=Depends(_require_permission("manage_billing"))):
     """Return a Stripe Customer Portal URL for subscription management."""
     if not _stripe_mgr.enabled:
         return JSONResponse(
@@ -404,7 +414,7 @@ async def billing_portal(request: Request, team_id: str = ""):
 
 
 @app.get("/api/billing/usage", response_class=JSONResponse)
-async def billing_usage(team_id: str = ""):
+async def billing_usage(team_id: str = "", user=Depends(_require_permission("view_results"))):
     """Return current usage stats and tier information for a team."""
     if not team_id:
         return JSONResponse({"error": "team_id query parameter is required"}, status_code=400)

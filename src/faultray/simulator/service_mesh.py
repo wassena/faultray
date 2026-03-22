@@ -9,11 +9,14 @@ patterns following Istio/Linkerd/Consul patterns.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from enum import Enum
 
 from faultray.model.components import ComponentType
 from faultray.model.graph import InfraGraph
+
+logger = logging.getLogger(__name__)
 
 
 class MeshPattern(str, Enum):
@@ -322,8 +325,11 @@ class ServiceMeshAnalyzer:
                                 issue=issue,
                             )
                         )
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.warning(
+                        "Failed to analyze timeout chain for path %s -> %s: %s",
+                        entry, leaf, e,
+                    )
 
         return chains
 

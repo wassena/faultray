@@ -18,11 +18,14 @@ Key concepts:
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 
 from faultray.model.components import ComponentType, HealthStatus, Component
 from faultray.model.graph import InfraGraph
 from faultray.simulator.cascade import CascadeEffect
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -97,7 +100,15 @@ def calculate_hallucination_probability(
             for pair in dep_weights.split(","):
                 parts = pair.strip().split(":")
                 if len(parts) == 2:
-                    sid, w = parts[0].strip(), float(parts[1].strip())
+                    sid = parts[0].strip()
+                    try:
+                        w = float(parts[1].strip())
+                    except ValueError:
+                        logger.warning(
+                            "Malformed weight in data_source_weights for source '%s': '%s', using default 0.5",
+                            sid, parts[1].strip(),
+                        )
+                        w = 0.5
                     status = infra_state.get(sid, HealthStatus.HEALTHY)
                     sources.append(DataSourceState(source_id=sid, weight=w, status=status))
 

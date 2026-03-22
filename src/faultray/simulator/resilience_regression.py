@@ -11,8 +11,11 @@ security downgrades, SLO loosening, and recovery-time increases.
 
 from __future__ import annotations
 
+import logging
 from enum import Enum
 from statistics import linear_regression
+
+logger = logging.getLogger(__name__)
 
 from pydantic import BaseModel, Field
 
@@ -723,7 +726,8 @@ class ResilienceRegressionEngine:
             slope, _ = linear_regression(xs, values)
             return slope
         except Exception:
-            return 0.0
+            logger.warning("Linear regression failed for values: %s", values)
+            return -1.0
 
     @staticmethod
     def _estimate_effort_impact(

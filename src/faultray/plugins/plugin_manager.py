@@ -336,13 +336,37 @@ class PluginManager:
         plugin = cls_or_factory() if callable(cls_or_factory) else cls_or_factory
         return plugin  # type: ignore[return-value]
 
+    def _is_allowed_plugin_path(self, py_file: Path) -> bool:
+        """Check that *py_file* resides inside one of the configured plugin directories."""
+        resolved = py_file.resolve()
+        for allowed_dir in self._plugin_dirs:
+            try:
+                resolved.relative_to(allowed_dir.resolve())
+                return True
+            except ValueError:
+                continue
+        return False
+
     def _load_from_file_path(self, py_file: Path, plugin_name: str) -> PluginInterface:
         """Import a Python file and find the plugin class inside.
 
         Uses ``compile`` + ``exec`` rather than ``importlib`` to avoid
         bytecode caching, which is essential for hot-reload support.
+
+        Only files within explicitly configured plugin directories are allowed.
         """
         import types
+
+        if not self._is_allowed_plugin_path(py_file):
+            raise RuntimeError(
+                f"Plugin file '{py_file}' is outside the allowed plugin directories: "
+                f"{[str(d) for d in self._plugin_dirs]}. "
+                "Refusing to load for security reasons."
+            )
+
+        logger.warning(
+            "Loading plugin '%s' via exec() from %s", plugin_name, py_file,
+        )
 
         source = py_file.read_text(encoding="utf-8")
         code = compile(source, str(py_file), "exec")

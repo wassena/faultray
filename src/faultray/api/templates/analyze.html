@@ -96,7 +96,7 @@
             <h3>Upgrade Path</h3>
         </div>
         <div class="card-body">
-            <div class="upgrade-path-text">{{ analysis.upgrade_path | replace('\n', '<br>') | safe }}</div>
+            <div class="upgrade-path-text">{{ analysis.upgrade_path | e | replace('\n', '<br>') | safe }}</div>
         </div>
     </div>
 

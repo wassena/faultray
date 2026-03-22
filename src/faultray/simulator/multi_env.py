@@ -352,8 +352,8 @@ class MultiEnvAnalyzer:
                 analyzer = ChaosGenomeAnalyzer()
                 genome = analyzer.analyze(graph)
                 genome_hash = genome.genome_hash
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("Could not compute genome hash for %s: %s", name, e)
 
             # Count critical findings from simulation
             critical_findings = 0

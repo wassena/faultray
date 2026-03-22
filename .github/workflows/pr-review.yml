@@ -19,7 +19,7 @@ jobs:
        contains(github.event.comment.body, '/review'))
     runs-on: ubuntu-latest
     steps:
-      - uses: Codium-ai/pr-agent@main
+      - uses: Codium-ai/pr-agent@f5cf45b64daf1d5333c0416affae2adb65c19ce3  # main
         env:
           OPENAI_KEY: ${{ secrets.OPENAI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -396,8 +396,8 @@ class AnomalyDetector:
                         "communication or restructuring the dependency graph."
                     ),
                 ))
-        except Exception:
-            pass  # Skip if graph analysis fails
+        except Exception as e:
+            logger.warning("Circular dependency detection failed: %s", e)
 
         # --- Overly connected components (fan-out > 5) ---
         for comp in components:
