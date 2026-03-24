@@ -1473,7 +1473,14 @@
           <span class="prompt">$ </span><span class="cmd">pip install</span> <span class="arg">faultray</span><br>
           <span class="prompt">$ </span><span class="cmd">faultray</span> <span class="arg">demo</span>
         </div>
-        <div class="cta-buttons">
+        <!-- Email signup -->
+        <form style="display:flex;gap:8px;max-width:480px;margin:24px auto 0" onsubmit="handleFaultraySignup(event)">
+          <input id="fr-email" type="email" placeholder="your@email.com" required style="flex:1;padding:12px 16px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);color:#fff;font-size:15px;outline:none">
+          <button type="submit" style="padding:12px 24px;border-radius:8px;border:none;background:var(--cyan,#22d3ee);color:#0f172a;font-weight:700;font-size:15px;cursor:pointer;white-space:nowrap" data-i18n="cta_signup">Get Early Access</button>
+        </form>
+        <p id="fr-signup-note" style="text-align:center;font-size:13px;color:rgba(255,255,255,.5);margin-top:8px" data-i18n="cta_signup_note">Free forever for OSS. Enterprise plans coming soon.</p>
+
+        <div class="cta-buttons" style="margin-top:16px">
           <a href="https://github.com/mattyopon/faultray" class="btn-github" target="_blank" rel="noopener">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
             <span data-i18n="cta_github">Star on GitHub</span>
@@ -1639,6 +1646,8 @@
         cta_sub: "Join teams that prove DORA compliance in minutes, not months. Free forever for open-source use.",
         cta_github: "Star on GitHub",
         cta_pypi: "PyPI Package \u2192",
+        cta_signup: "Get Early Access",
+        cta_signup_note: "Free forever for OSS. Enterprise plans coming soon.",
         // Footer
         footer_tagline: "Mathematical resilience testing for regulated industries.",
         footer_paper: "Paper (DOI)"
@@ -1769,6 +1778,8 @@
         cta_sub: "\u6570\u30f6\u6708\u3067\u306f\u306a\u304f\u6570\u5206\u3067DORA\u6e96\u62e0\u3092\u8a3c\u660e\u3059\u308b\u30c1\u30fc\u30e0\u306b\u3002\u30aa\u30fc\u30d7\u30f3\u30bd\u30fc\u30b9\u5229\u7528\u306f\u6c38\u4e45\u7121\u6599\u3002",
         cta_github: "GitHub\u3067Star\u3059\u308b",
         cta_pypi: "PyPI\u30d1\u30c3\u30b1\u30fc\u30b8 \u2192",
+        cta_signup: "\u30a2\u30fc\u30ea\u30fc\u30a2\u30af\u30bb\u30b9\u306b\u767b\u9332",
+        cta_signup_note: "OSS\u5229\u7528\u306f\u6c38\u4e45\u7121\u6599\u3002Enterprise\u30d7\u30e9\u30f3\u8fd1\u65e5\u516c\u958b\u3002",
         // Footer
         footer_tagline: "\u898f\u5236\u696d\u754c\u306e\u305f\u3081\u306e\u6570\u5b66\u7684\u30ec\u30b8\u30ea\u30a8\u30f3\u30b9\u30c6\u30b9\u30c8\u3002",
         footer_paper: "\u8ad6\u6587 (DOI)"
@@ -1880,6 +1891,46 @@
         }
       });
     });
+  // FaultRay email signup
+  function handleFaultraySignup(e) {
+    e.preventDefault();
+    const email = document.getElementById('fr-email').value;
+    const btn = e.target.querySelector('button');
+    const note = document.getElementById('fr-signup-note');
+    const lang = localStorage.getItem('faultray-lang') || 'en';
+
+    if (!email || !email.includes('@')) {
+      note.textContent = 'Please enter a valid email';
+      note.style.color = '#ef4444';
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Sending...';
+
+    fetch('https://formspree.io/f/maqprkez', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email, source: 'faultray-lp', lang: lang })
+    })
+    .then(r => {
+      if (r.ok) {
+        note.textContent = lang === 'ja'
+          ? `✓ ${email} を登録しました。アーリーアクセスのご案内をお送りします。`
+          : `✓ Registered ${email}. We'll send you early access details.`;
+        note.style.color = '#22c55e';
+        btn.textContent = '✓ Registered';
+        btn.style.background = '#22c55e';
+        document.getElementById('fr-email').value = '';
+      } else { throw new Error('fail'); }
+    })
+    .catch(() => {
+      note.textContent = 'Failed. Please try again.';
+      note.style.color = '#ef4444';
+      btn.disabled = false;
+      btn.textContent = 'Get Early Access';
+    });
+  }
   </script>
 </body>
 </html>
