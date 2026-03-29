@@ -1459,6 +1459,7 @@ def show_welcome() -> None:
         """, unsafe_allow_html=True)
         if st.button("🚀 Quick Demo", use_container_width=True, type="primary", key="welcome_quick_demo"):
             st.session_state.onboarded = True
+            st.session_state.auto_run_demo = True
             st.session_state.current_page = "page_quick_demo"
             st.rerun()
 
@@ -1691,6 +1692,7 @@ def page_dashboard() -> None:
         col_a, col_b = st.columns(2)
         with col_a:
             if st.button("🚀 Quick Demo", type="primary", use_container_width=True):
+                st.session_state.auto_run_demo = True
                 st.session_state.current_page = "page_quick_demo"
                 st.rerun()
         with col_b:
@@ -3269,7 +3271,12 @@ def page_quick_demo() -> None:
         key="quick_demo_sample",
     )
 
-    if st.button("▶️ Run Demo", type="primary", use_container_width=True):
+    # Auto-run when coming from Welcome or Dashboard
+    should_auto_run = st.session_state.get("auto_run_demo", False)
+    if should_auto_run:
+        st.session_state.auto_run_demo = False
+
+    if should_auto_run or st.button("▶️ Run Demo", type="primary", use_container_width=True):
         with st.spinner(f"Simulating failure scenarios for «{sample_key}»..."):
             if not FAULTRAY_AVAILABLE:
                 time.sleep(0.5)
