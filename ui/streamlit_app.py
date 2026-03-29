@@ -93,6 +93,12 @@ _defaults: dict[str, Any] = {
     "gov_framework": "all",
     # Financial / Remediation demo data
     "financial_report": None,
+    # Quick Demo
+    "quick_demo_result": None,
+    # DORA assessment
+    "dora_result": None,
+    # IaC export
+    "iac_export_result": None,
 }
 for _k, _v in _defaults.items():
     if _k not in st.session_state:
@@ -1428,27 +1434,57 @@ def render_inline_top_issues(result: dict[str, Any], max_issues: int = 3) -> Non
 # ══════════════════════════════════════════════════════════════════
 
 def show_welcome() -> None:
-    """ウェルカム画面を表示する. ワンクリックで即デモ体験."""
+    """ウェルカム画面を表示する. 3つのエントリーポイントを提供."""
     st.markdown("""
     <div class="welcome-card">
         <h1>\u26a1 FaultRay</h1>
-        <p>あなたのインフラの弱点を、本番を壊さずに発見</p>
+        <p>Simulates infrastructure failures mathematically — without touching production.</p>
+        <p style="font-size:0.95em;color:#64748b;margin-top:8px">
+            Discover single points of failure, cascade risks, and DORA compliance gaps before they hit production.
+        </p>
     </div>
     """, unsafe_allow_html=True)
 
-    # --- ワンクリック体験 ---
-    _col_l, col_center, _col_r = st.columns([1, 2, 1])
-    with col_center:
-        if st.button(
-            "\U0001f680 デモを試す（ワンクリック）",
-            type="primary",
-            use_container_width=True,
-            help="Webアプリ3層構成のサンプルで即座にシミュレーションを実行します",
-        ):
+    # --- 3ボタンエントリーポイント ---
+    st.markdown("### Try it now:")
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.markdown("""
+        <div class="step-card">
+            <div style="font-size:2em">🚀</div>
+            <h3>Quick Demo</h3>
+            <p style="color:#6c757d;font-size:0.9em">Run a 30-second simulation on sample infrastructure</p>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("🚀 Quick Demo", use_container_width=True, type="primary", key="welcome_quick_demo"):
             st.session_state.onboarded = True
-            st.session_state.auto_run_demo = True
-            st.session_state.selected_sample = "Webアプリ 3層構成"
-            st.session_state.topology_yaml = SAMPLE_TOPOLOGIES["Webアプリ 3層構成"]["yaml"]
+            st.session_state.current_page = "page_quick_demo"
+            st.rerun()
+
+    with col2:
+        st.markdown("""
+        <div class="step-card">
+            <div style="font-size:2em">📋</div>
+            <h3>DORA Check</h3>
+            <p style="color:#6c757d;font-size:0.9em">Check your DORA & AI Governance compliance posture</p>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("📋 DORA Check", use_container_width=True, key="welcome_dora"):
+            st.session_state.onboarded = True
+            st.session_state.current_page = "page_governance"
+            st.rerun()
+
+    with col3:
+        st.markdown("""
+        <div class="step-card">
+            <div style="font-size:2em">✏️</div>
+            <h3>Upload YAML</h3>
+            <p style="color:#6c757d;font-size:0.9em">Simulate your own infrastructure topology</p>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("✏️ Upload YAML", use_container_width=True, key="welcome_upload"):
+            st.session_state.onboarded = True
             st.session_state.current_page = "page_simulation"
             st.rerun()
 
@@ -1456,13 +1492,13 @@ def show_welcome() -> None:
 
     # エンジン状態（簡潔に）
     if FAULTRAY_AVAILABLE:
-        st.caption("\u2705 FaultRayエンジン有効 - 実際のシミュレーションを実行します")
+        st.caption("\u2705 FaultRay engine active — running real simulations")
     else:
-        st.caption("\U0001f4cb デモモードで動作中 - サンプル結果をすぐに体験できます")
+        st.caption("\U0001f4cb Demo mode — showing sample results instantly")
 
     # --- 他のサンプルへの誘導 ---
     st.markdown("---")
-    st.markdown("##### または、構成を選んで始める")
+    st.markdown("##### Or choose a sample topology to explore:")
 
     sample_cols = st.columns(3)
     sample_names = list(SAMPLE_TOPOLOGIES.keys())
@@ -1497,10 +1533,148 @@ def show_welcome() -> None:
 # ページ 1: ダッシュボード
 # ══════════════════════════════════════════════════════════════════
 
+def _render_network_graph(topology: dict[str, Any]) -> None:
+    """コンポーネント依存関係のネットワークグラフをPlotlyで表示する."""
+    try:
+        import plotly.graph_objects as go  # type: ignore[import]
+        import math
+
+        components = {c["id"]: c for c in topology.get("components", [])}
+        deps = topology.get("dependencies", [])
+
+        if not components:
+            st.info("No components found in topology.")
+            return
+
+        # Simple circular layout
+        n = len(components)
+        comp_ids = list(components.keys())
+        positions: dict[str, tuple[float, float]] = {}
+        for i, cid in enumerate(comp_ids):
+            angle = 2 * math.pi * i / max(n, 1)
+            positions[cid] = (math.cos(angle) * 2, math.sin(angle) * 2)
+
+        # Type → color mapping
+        type_colors: dict[str, str] = {
+            "load_balancer": "#3b82f6",
+            "app_server": "#8b5cf6",
+            "database": "#ef4444",
+            "cache": "#f59e0b",
+            "queue": "#10b981",
+            "storage": "#6366f1",
+            "external_api": "#ec4899",
+            "ai_agent": "#14b8a6",
+            "llm_endpoint": "#f97316",
+        }
+
+        # Edges
+        edge_x, edge_y = [], []
+        for d in deps:
+            src, tgt = d.get("source", ""), d.get("target", "")
+            if src in positions and tgt in positions:
+                x0, y0 = positions[src]
+                x1, y1 = positions[tgt]
+                edge_x += [x0, x1, None]
+                edge_y += [y0, y1, None]
+
+        edge_trace = go.Scatter(
+            x=edge_x, y=edge_y,
+            mode="lines",
+            line={"width": 1, "color": "#94a3b8"},
+            hoverinfo="none",
+        )
+
+        # Nodes
+        node_x = [positions[cid][0] for cid in comp_ids]
+        node_y = [positions[cid][1] for cid in comp_ids]
+        node_colors = [type_colors.get(components[cid].get("type", ""), "#64748b") for cid in comp_ids]
+        node_labels = [components[cid].get("name", cid) for cid in comp_ids]
+        node_types = [components[cid].get("type", "custom") for cid in comp_ids]
+
+        node_trace = go.Scatter(
+            x=node_x, y=node_y,
+            mode="markers+text",
+            marker={
+                "size": 22,
+                "color": node_colors,
+                "line": {"width": 2, "color": "#ffffff"},
+            },
+            text=node_labels,
+            textposition="bottom center",
+            textfont={"size": 10},
+            hovertemplate="<b>%{text}</b><br>Type: %{customdata}<extra></extra>",
+            customdata=node_types,
+        )
+
+        fig = go.Figure(
+            data=[edge_trace, node_trace],
+            layout=go.Layout(
+                height=400,
+                showlegend=False,
+                hovermode="closest",
+                margin={"l": 10, "r": 10, "t": 10, "b": 10},
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                xaxis={"showgrid": False, "zeroline": False, "showticklabels": False},
+                yaxis={"showgrid": False, "zeroline": False, "showticklabels": False},
+            ),
+        )
+        st.plotly_chart(fig, use_container_width=True)
+    except ImportError:
+        # Fallback to text visualization
+        if st.session_state.parsed_topology:
+            render_topology_graph(st.session_state.parsed_topology)
+        else:
+            st.info("Install plotly for interactive network graph: `pip install plotly`")
+
+
+def _render_risk_heatmap(result: dict[str, Any]) -> None:
+    """シナリオリスクのヒートマップをPlotlyで表示する."""
+    try:
+        import plotly.graph_objects as go  # type: ignore[import]
+
+        scenarios = result.get("scenarios", [])
+        if not scenarios:
+            return
+
+        # Top 15 scenarios sorted by risk
+        top = sorted(scenarios, key=lambda x: x["risk_score"], reverse=True)[:15]
+        names = [s["name"][:35] for s in top]
+        scores_list = [s["risk_score"] for s in top]
+        colors_list = [
+            "#ef4444" if s["severity"] == "CRITICAL"
+            else "#f59e0b" if s["severity"] == "WARNING"
+            else "#22c55e"
+            for s in top
+        ]
+
+        fig = go.Figure(go.Bar(
+            x=scores_list,
+            y=names,
+            orientation="h",
+            marker_color=colors_list,
+            text=[f"{s:.1f}" for s in scores_list],
+            textposition="outside",
+        ))
+        fig.update_layout(
+            height=max(300, len(names) * 30),
+            xaxis_title="Risk Score (0–10)",
+            xaxis={"range": [0, 11]},
+            yaxis_title="",
+            margin={"l": 10, "r": 60, "t": 10, "b": 30},
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font={"color": "#1e293b"},
+        )
+        st.plotly_chart(fig, use_container_width=True)
+    except ImportError:
+        st.info("Install plotly for interactive charts: `pip install plotly`")
+
+
 def page_dashboard() -> None:
     """ダッシュボード: 直近のシミュレーション結果サマリー."""
-    st.header("\U0001f4ca ダッシュボード")
-    st.caption("直近のシミュレーション結果を一目で確認できます。")
+    st.header("🏠 Dashboard")
+    st.caption("Latest simulation results at a glance.")
 
     result = st.session_state.sim_result
     history = st.session_state.sim_history
@@ -1509,71 +1683,92 @@ def page_dashboard() -> None:
         # まだシミュレーションしていない
         st.markdown("""
         <div class="empty-state">
-            <h3>まだシミュレーションを実行していません</h3>
-            <p>シミュレーションを実行すると、スコアと結果のサマリーが表示されます。</p>
+            <h3>No simulation run yet</h3>
+            <p>Run a simulation to see your resilience score and issue summary here.</p>
         </div>
         """, unsafe_allow_html=True)
         st.markdown("")
-        _col_l, col_center, _col_r = st.columns([1, 2, 1])
-        with col_center:
-            if st.button("\u26a1 シミュレーションを始める", type="primary", use_container_width=True):
+        col_a, col_b = st.columns(2)
+        with col_a:
+            if st.button("🚀 Quick Demo", type="primary", use_container_width=True):
+                st.session_state.current_page = "page_quick_demo"
+                st.rerun()
+        with col_b:
+            if st.button("⚡ Custom Simulation", use_container_width=True):
                 st.session_state.current_page = "page_simulation"
                 st.rerun()
         return
 
-    # -- メインスコア
-    render_score_gauge(result["resilience_score"])
+    # -- メインスコア + メトリクス (2カラム)
+    col_score, col_metrics = st.columns([1, 2])
+    with col_score:
+        render_score_gauge(result["resilience_score"])
+    with col_metrics:
+        st.markdown("#### Scenario Summary")
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Total", result["total_scenarios"])
+        c2.metric(
+            "🚨 CRITICAL",
+            result["critical"],
+            help="Scenarios requiring immediate attention",
+        )
+        c3.metric(
+            "⚠️ WARNING",
+            result["warning"],
+            help="Scenarios requiring attention",
+        )
+        c4.metric(
+            "✅ PASS",
+            result["passed"],
+            help="Scenarios where redundancy is working",
+        )
 
-    # -- サマリーメトリクス
-    st.markdown("#### シナリオ集計")
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("総シナリオ数", result["total_scenarios"])
-    c2.metric(
-        "\U0001f6a8 CRITICAL",
-        result["critical"],
-        help="即座に対応が必要な重大な障害シナリオの数です",
-    )
-    c3.metric(
-        "\u26a0\ufe0f WARNING",
-        result["warning"],
-        help="注意が必要な障害シナリオの数です",
-    )
-    c4.metric(
-        "\u2705 PASS",
-        result["passed"],
-        help="冗長化等が機能しており、問題のないシナリオの数です",
-    )
+        # -- 改善提案トップ3
+        suggestions = result.get("suggestions", [])
+        critical_suggestions = [s for s in suggestions if isinstance(s, dict) and s.get("priority") == "critical"]
+        if critical_suggestions:
+            st.markdown("#### 🚨 Top Priority Actions")
+            for i, sug in enumerate(critical_suggestions[:3], 1):
+                st.markdown(
+                    f'<div class="suggestion-card suggestion-card-critical">'
+                    f'<strong>{i}. {__import__("html").escape(sug["title"])}</strong><br>'
+                    f'<span style="color:#6c757d">{__import__("html").escape(sug["detail"])}</span>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+            if st.button("💡 All Suggestions"):
+                st.session_state.current_page = "page_suggestions"
+                st.rerun()
 
-    # -- 次にやるべきこと: CRITICALな改善提案トップ3
-    suggestions = result.get("suggestions", [])
-    critical_suggestions = [s for s in suggestions if isinstance(s, dict) and s.get("priority") == "critical"]
-    if critical_suggestions:
+    # -- Risk heatmap
+    st.markdown("---")
+    st.markdown("#### Risk Heatmap")
+    _render_risk_heatmap(result)
+
+    # -- Network graph (if topology loaded)
+    parsed_topo = st.session_state.parsed_topology
+    if parsed_topo is None and st.session_state.topology_yaml:
+        try:
+            parsed_topo = parse_topology(st.session_state.topology_yaml)
+        except Exception:
+            parsed_topo = None
+
+    if parsed_topo:
         st.markdown("---")
-        st.markdown("#### \U0001f6a8 最優先で対応すべきこと")
-        for i, sug in enumerate(critical_suggestions[:3], 1):
-            st.markdown(
-                f'<div class="suggestion-card suggestion-card-critical">'
-                f'<strong>{i}. {__import__("html").escape(sug["title"])}</strong><br>'
-                f'<span style="color:#6c757d">{__import__("html").escape(sug["detail"])}</span>'
-                f'</div>',
-                unsafe_allow_html=True,
-            )
-        st.markdown("")
-        if st.button("\U0001f4a1 すべての改善提案を見る"):
-            st.session_state.current_page = "page_suggestions"
-            st.rerun()
+        st.markdown("#### Component Dependency Graph")
+        _render_network_graph(parsed_topo)
 
     # -- 実行履歴
     if len(history) > 1:
         st.markdown("---")
-        st.markdown("#### 実行履歴")
+        st.markdown("#### Run History")
         for _i, h in enumerate(reversed(history[-5:])):
             score = h["resilience_score"]
             emoji = _score_emoji(score)
             color = "#22c55e" if score >= 80 else "#f59e0b" if score >= 60 else "#ef4444"
             st.markdown(
                 f"{emoji} <span style='color:{color};font-weight:bold'>{score:.1f}</span>"
-                f" / 100  -  CRITICAL: {h['critical']}, WARNING: {h['warning']}, PASS: {h['passed']}",
+                f" / 100  —  CRITICAL: {h['critical']}, WARNING: {h['warning']}, PASS: {h['passed']}",
                 unsafe_allow_html=True,
             )
 
@@ -3058,44 +3253,292 @@ def page_reports() -> None:
 
 
 # ══════════════════════════════════════════════════════════════════
+# ページ 10: Quick Demo
+# ══════════════════════════════════════════════════════════════════
+
+def page_quick_demo() -> None:
+    """Quick Demo: ワンクリックでデモインフラのシミュレーションを体験."""
+    st.header("🚀 Quick Demo")
+    st.markdown("Experience FaultRay in 30 seconds with a sample infrastructure.")
+
+    # Sample selection
+    sample_key = st.selectbox(
+        "Infrastructure sample",
+        list(SAMPLE_TOPOLOGIES.keys()),
+        index=0,
+        key="quick_demo_sample",
+    )
+
+    if st.button("▶️ Run Demo", type="primary", use_container_width=True):
+        with st.spinner(f"Simulating failure scenarios for «{sample_key}»..."):
+            if not FAULTRAY_AVAILABLE:
+                time.sleep(0.5)
+            result = _execute_demo_simulation(sample_key)
+        if result:
+            st.session_state.quick_demo_result = result
+            st.session_state.sim_result = result
+            st.session_state.sim_history.append(result)
+            if len(st.session_state.sim_history) > 20:
+                st.session_state.sim_history = st.session_state.sim_history[-20:]
+
+    result = st.session_state.quick_demo_result
+    if result is None:
+        st.info("Press **▶️ Run Demo** above to start the simulation.")
+        return
+
+    # --- Score metrics ---
+    score = result["resilience_score"]
+    if score >= 80:
+        score_color = "#22c55e"
+    elif score >= 60:
+        score_color = "#f59e0b"
+    else:
+        score_color = "#ef4444"
+
+    st.markdown("---")
+    st.markdown("### Results")
+
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Resilience Score", f"{score}/100")
+    col2.metric("Scenarios", result["total_scenarios"])
+    col3.metric("🚨 Critical", result["critical"])
+    col4.metric("✅ Passed", result["passed"])
+
+    # --- Score gauge ---
+    render_score_gauge(result["resilience_score"])
+
+    # --- Risk heatmap (bar chart via Plotly) ---
+    scenarios = result.get("scenarios", [])
+    if scenarios:
+        st.markdown("### Risk Heatmap by Scenario")
+        try:
+            import plotly.graph_objects as go  # type: ignore[import]
+
+            names = [s["name"][:30] for s in scenarios[:15]]
+            scores_list = [s["risk_score"] for s in scenarios[:15]]
+            colors_list = [
+                "#ef4444" if s["severity"] == "CRITICAL"
+                else "#f59e0b" if s["severity"] == "WARNING"
+                else "#22c55e"
+                for s in scenarios[:15]
+            ]
+
+            fig = go.Figure(go.Bar(
+                x=scores_list,
+                y=names,
+                orientation="h",
+                marker_color=colors_list,
+                text=[f"{s:.1f}" for s in scores_list],
+                textposition="outside",
+            ))
+            fig.update_layout(
+                height=max(300, len(names) * 32),
+                xaxis_title="Risk Score (0–10)",
+                yaxis_title="",
+                margin={"l": 10, "r": 60, "t": 10, "b": 30},
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                font={"color": "#1e293b"},
+                xaxis={"range": [0, 10.5]},
+            )
+            st.plotly_chart(fig, use_container_width=True)
+        except ImportError:
+            # Plotly not available — fall back to text representation
+            render_inline_top_issues(result, max_issues=5)
+
+    # --- Top issues ---
+    st.markdown("### Top Issues Found")
+    render_inline_top_issues(result, max_issues=5)
+
+    # --- CTA buttons ---
+    st.markdown("---")
+    col_a, col_b, col_c = st.columns(3)
+    with col_a:
+        if st.button("📋 Full Results", use_container_width=True):
+            st.session_state.current_page = "page_results"
+            st.rerun()
+    with col_b:
+        if st.button("💡 Suggestions", use_container_width=True):
+            st.session_state.current_page = "page_suggestions"
+            st.rerun()
+    with col_c:
+        if st.button("🏗️ Export IaC", use_container_width=True):
+            st.session_state.selected_sample = sample_key
+            st.session_state.topology_yaml = SAMPLE_TOPOLOGIES[sample_key]["yaml"]
+            st.session_state.current_page = "page_iac_export"
+            st.rerun()
+
+
+# ══════════════════════════════════════════════════════════════════
+# ページ 11: IaC Export
+# ══════════════════════════════════════════════════════════════════
+
+def page_iac_export() -> None:
+    """IaC Export: InfraGraphをTerraform / CloudFormation / Kubernetesに変換."""
+    st.header("🏗️ Export as Infrastructure as Code")
+    st.markdown("Convert your infrastructure topology into production-ready IaC files with embedded resilience warnings.")
+
+    topology_yaml = st.session_state.topology_yaml
+    if not topology_yaml:
+        st.warning("No topology loaded. Please run a simulation first or upload a YAML topology.")
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("⚡ Go to Simulation", use_container_width=True):
+                st.session_state.current_page = "page_simulation"
+                st.rerun()
+        with col2:
+            uploaded = st.file_uploader("Or upload YAML here", type=["yaml", "yml", "json"])
+            if uploaded:
+                try:
+                    content = uploaded.read().decode("utf-8")
+                    parse_topology(content)
+                    st.session_state.topology_yaml = content
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Parse error: {e}")
+        return
+
+    # --- Options ---
+    col_fmt, col_prov = st.columns(2)
+    with col_fmt:
+        fmt_label = st.selectbox("Output Format", ["Terraform", "CloudFormation", "Kubernetes"])
+    with col_prov:
+        region = st.selectbox("AWS Region", ["us-east-1", "us-west-2", "eu-west-1", "ap-northeast-1"])
+
+    mark_spof = st.checkbox("Mark SPOFs with warnings in generated code", value=True)
+    include_comments = st.checkbox("Include FaultRay discovery comments", value=True)
+
+    if st.button("⚙️ Generate IaC", type="primary", use_container_width=True):
+        if not FAULTRAY_AVAILABLE:
+            st.warning("FaultRay engine not available. Install `pip install faultray` to use IaC export.")
+            return
+
+        try:
+            from faultray.iac.exporter import IacExporter, ExportFormat
+
+            fmt_map = {
+                "Terraform": ExportFormat.TERRAFORM,
+                "CloudFormation": ExportFormat.CLOUDFORMATION,
+                "Kubernetes": ExportFormat.KUBERNETES,
+            }
+            fmt_enum = fmt_map[fmt_label]
+
+            topo = parse_topology(topology_yaml)
+            graph = build_infra_graph(topo)
+            exporter = IacExporter(graph)
+            export_result = exporter.export(
+                fmt=fmt_enum,
+                provider_region=region,
+                include_comments=include_comments,
+                mark_spof=mark_spof,
+            )
+            st.session_state.iac_export_result = {
+                "format": fmt_label,
+                "files": export_result.files,
+                "warnings": export_result.warnings,
+                "spof_components": export_result.spof_components,
+            }
+        except Exception as e:
+            st.error(f"IaC generation error: {e}")
+            return
+
+    export_data = st.session_state.iac_export_result
+    if export_data is None:
+        st.info("Configure options above and click **⚙️ Generate IaC** to generate infrastructure code.")
+        return
+
+    # --- Results ---
+    st.markdown("---")
+    st.markdown(f"### Generated {export_data['format']} Files")
+
+    # SPOF warnings
+    if export_data.get("spof_components"):
+        spof_list = ", ".join(f"`{c}`" for c in export_data["spof_components"])
+        st.warning(f"⚠️ **SPOF components detected:** {spof_list}. Warnings have been embedded in the generated code.")
+
+    # Other warnings
+    for w in export_data.get("warnings", []):
+        st.caption(f"ℹ️ {w}")
+
+    # Display files
+    files = export_data.get("files", {})
+    ext_map = {"Terraform": "hcl", "CloudFormation": "yaml", "Kubernetes": "yaml"}
+    lang = ext_map.get(export_data["format"], "text")
+
+    for filename, content in files.items():
+        with st.expander(f"📄 {filename}", expanded=True):
+            st.code(content, language=lang)
+            st.download_button(
+                f"📥 Download {filename}",
+                data=content,
+                file_name=filename,
+                mime="text/plain",
+                key=f"iac_dl_{filename}",
+            )
+
+    # Bulk download (ZIP if multiple files)
+    if len(files) > 1:
+        import io as _io
+        import zipfile as _zipfile
+        zip_buf = _io.BytesIO()
+        with _zipfile.ZipFile(zip_buf, "w", _zipfile.ZIP_DEFLATED) as zf:
+            for fname, fcontent in files.items():
+                zf.writestr(fname, fcontent)
+        zip_buf.seek(0)
+        st.download_button(
+            "📦 Download All Files (ZIP)",
+            data=zip_buf.getvalue(),
+            file_name=f"faultray-iac-{export_data['format'].lower()}.zip",
+            mime="application/zip",
+            type="primary",
+        )
+
+
+# ══════════════════════════════════════════════════════════════════
 # ルーティング
 # ══════════════════════════════════════════════════════════════════
 
 MENU_ITEMS = [
-    "\U0001f4ca ダッシュボード",
-    "\u26a1 シミュレーション",
-    "\U0001f4cb 結果詳細",
-    "\U0001f4a1 改善提案",
-    "\U0001f3db\ufe0f ガバナンス診断",
-    "\U0001f4b0 損害レポート",
-    "\U0001f527 改善計画",
-    "\U0001f4c4 レポートセンター",
-    "\u2699\ufe0f 設定",
+    "🏠 Dashboard",
+    "🚀 Quick Demo",
+    "⚡ Simulation",
+    "📋 DORA Compliance",
+    "📊 Results",
+    "💡 Suggestions",
+    "💰 Damage Report",
+    "🔧 Remediation",
+    "📄 Reports",
+    "🏗️ IaC Export",
+    "⚙️ Settings",
 ]
 
 MENU_TO_PAGE_KEY = {
-    "\U0001f4ca ダッシュボード": "page_dashboard",
-    "\u26a1 シミュレーション": "page_simulation",
-    "\U0001f4cb 結果詳細": "page_results",
-    "\U0001f4a1 改善提案": "page_suggestions",
-    "\U0001f3db\ufe0f ガバナンス診断": "page_governance",
-    "\U0001f4b0 損害レポート": "page_financial",
-    "\U0001f527 改善計画": "page_remediation",
-    "\U0001f4c4 レポートセンター": "page_reports",
-    "\u2699\ufe0f 設定": "page_settings",
+    "🏠 Dashboard": "page_dashboard",
+    "🚀 Quick Demo": "page_quick_demo",
+    "⚡ Simulation": "page_simulation",
+    "📋 DORA Compliance": "page_governance",
+    "📊 Results": "page_results",
+    "💡 Suggestions": "page_suggestions",
+    "💰 Damage Report": "page_financial",
+    "🔧 Remediation": "page_remediation",
+    "📄 Reports": "page_reports",
+    "🏗️ IaC Export": "page_iac_export",
+    "⚙️ Settings": "page_settings",
 }
 
 PAGE_KEY_TO_MENU = {v: k for k, v in MENU_TO_PAGE_KEY.items()}
 
 PAGE_KEY_TO_FN = {
     "page_dashboard": page_dashboard,
+    "page_quick_demo": page_quick_demo,
     "page_simulation": page_simulation,
+    "page_governance": page_governance,
     "page_results": page_results,
     "page_suggestions": page_suggestions,
-    "page_governance": page_governance,
     "page_financial": page_financial,
     "page_remediation": page_remediation,
     "page_reports": page_reports,
+    "page_iac_export": page_iac_export,
     "page_settings": page_settings,
 }
 
@@ -3103,41 +3546,48 @@ if not st.session_state.onboarded:
     show_welcome()
 else:
     # サイドバー
-    st.sidebar.title("\u26a1 FaultRay")
-    st.sidebar.caption("インフラ障害シミュレーター")
-    st.sidebar.markdown("---")
+    with st.sidebar:
+        # Logo
+        import os as _os
+        _logo_path = _os.path.join(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))), "docs", "logo.png")
+        if _os.path.exists(_logo_path):
+            st.image(_logo_path, width=150)
+        else:
+            st.title("⚡ FaultRay")
+        st.caption("Infrastructure Failure Simulator")
+        st.markdown("---")
 
-    # ページ遷移（ボタンからの直接遷移をサポート）
-    override_page = st.session_state.current_page
-    default_index = 0
-    if override_page in PAGE_KEY_TO_MENU:
-        menu_label = PAGE_KEY_TO_MENU[override_page]
-        if menu_label in MENU_ITEMS:
-            default_index = MENU_ITEMS.index(menu_label)
-        st.session_state.current_page = None
+        # ページ遷移（ボタンからの直接遷移をサポート）
+        override_page = st.session_state.current_page
+        default_index = 0
+        if override_page in PAGE_KEY_TO_MENU:
+            menu_label = PAGE_KEY_TO_MENU[override_page]
+            if menu_label in MENU_ITEMS:
+                default_index = MENU_ITEMS.index(menu_label)
+            st.session_state.current_page = None
 
-    page = st.sidebar.radio(
-        "メニュー",
-        MENU_ITEMS,
-        index=default_index,
-        label_visibility="collapsed",
-    )
+        page = st.radio(
+            "Navigation",
+            MENU_ITEMS,
+            index=default_index,
+            label_visibility="collapsed",
+        )
 
-    # エンジン状態バッジ
-    st.sidebar.markdown("---")
-    if FAULTRAY_AVAILABLE:
-        st.sidebar.success("\u2705 エンジン: 有効")
-    else:
-        st.sidebar.info("\U0001f4cb デモモード")
+        # エンジン状態バッジ
+        st.markdown("---")
+        if FAULTRAY_AVAILABLE:
+            st.success("✅ Engine: Active")
+        else:
+            st.info("📋 Demo Mode")
 
-    st.sidebar.markdown("---")
-    st.sidebar.markdown(
-        "<div style='text-align:center;color:#64748b;font-size:0.8em'>"
-        "FaultRay - Zero-risk chaos engineering<br>"
-        "&copy; 2025-2026 Yutaro Maeda"
-        "</div>",
-        unsafe_allow_html=True,
-    )
+        st.markdown("---")
+        st.markdown(
+            "<div style='text-align:center;color:#64748b;font-size:0.8em'>"
+            "FaultRay — Zero-risk chaos engineering<br>"
+            "&copy; 2025-2026 Yutaro Maeda"
+            "</div>",
+            unsafe_allow_html=True,
+        )
 
     page_key = MENU_TO_PAGE_KEY.get(page, "page_dashboard")
     page_fn = PAGE_KEY_TO_FN.get(page_key, page_dashboard)
