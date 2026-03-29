@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
   pull_request:
+  schedule:
+    # Weekly mutation testing — Sunday 02:00 UTC
+    - cron: "0 2 * * 0"
 
 jobs:
   test:
@@ -60,6 +63,57 @@ jobs:
         with:
           file: ./coverage.xml
         continue-on-error: true
+
+  performance:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run performance benchmarks
+        # Threshold violations are reported but do NOT fail the build (continue-on-error)
+        continue-on-error: true
+        run: pytest tests/test_perf_benchmarks.py -v --tb=short
+
+  mutation:
+    runs-on: ubuntu-latest
+    # Run only on the weekly schedule trigger, not on every push/PR
+    if: github.event_name == 'schedule'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+          pip install mutmut
+
+      - name: Run mutation testing (core modules)
+        # Config is read from [tool.mutmut] in pyproject.toml
+        # paths_to_mutate covers model/, simulator/engine.py, simulator/cascade.py
+        run: python3 -m mutmut run
+        continue-on-error: true
+
+      - name: Show mutation results
+        if: always()
+        run: python3 -m mutmut results
 
   docker:
     runs-on: ubuntu-latest
