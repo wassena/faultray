@@ -292,7 +292,7 @@ class TestHTTPExceptionHandler:
         to raise one.
         """
         from fastapi import HTTPException
-        from faultray.api.server import _optional_user
+        from faultray.api.routes._shared import _optional_user
 
         async def _raise_http_exc():
             raise HTTPException(status_code=403, detail="Forbidden by test")

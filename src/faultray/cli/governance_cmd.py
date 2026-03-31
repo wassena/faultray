@@ -13,6 +13,11 @@ Provides sub-commands under ``faultray governance`` for:
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from faultray.governance.assessor import GovernanceAssessor
+    from faultray.governance.models import AssessmentResult
 
 import typer
 

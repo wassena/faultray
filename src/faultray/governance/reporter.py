@@ -8,6 +8,10 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from rich.console import Console
 
 from faultray.governance.assessor import AssessmentResult, MATURITY_LABELS
 from faultray.governance.frameworks import (

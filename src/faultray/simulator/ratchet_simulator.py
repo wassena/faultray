@@ -182,7 +182,7 @@ def simulate_multi_agent_with_ratchet(
     states: dict[str, RatchetState] = {}
     max_sensitivities: dict[str, SensitivityLevel] = {}
     all_events: list[LeakEvent] = []
-    profiles_by_id: dict[str, AgentSimProfile] = {p.agent_id: p for p in profiles}
+    {p.agent_id: p for p in profiles}
 
     # Initialize states
     for p in profiles:
@@ -312,7 +312,7 @@ def run_ratchet_simulation(
             profiles_without[0], ratchet_enabled=False,
         )
         states_with = {profiles_with[0].agent_id: state_with}
-        states_without = {profiles_without[0].agent_id: state_without}
+        {profiles_without[0].agent_id: state_without}
 
     # Compute damage
     damage_with = sum(
@@ -327,7 +327,7 @@ def run_ratchet_simulation(
     total_actions = sum(len(p.actions) for p in profiles)
 
     # Combine all events (mark which came from which run)
-    all_leak_events = events_with + events_without
+    events_with + events_without
 
     ratchet_final = {
         aid: {

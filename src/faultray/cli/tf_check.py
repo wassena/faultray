@@ -106,13 +106,11 @@ def tf_check(
                 delta_loss = after_loss - before_loss
 
                 if delta_loss > 0:
-                    delta_str = f"[red]+${delta_loss:,.0f}[/]"
                     delta_msg = f"This change [red]increases[/] annual risk by ${delta_loss:,.0f}"
                 elif delta_loss < 0:
-                    delta_str = f"[green]-${abs(delta_loss):,.0f}[/]"
+                    f"[green]-${abs(delta_loss):,.0f}[/]"
                     delta_msg = f"This change [green]reduces[/] annual risk by ${abs(delta_loss):,.0f}"
                 else:
-                    delta_str = "[dim]$0[/]"
                     delta_msg = "No change in financial risk"
 
                 from rich.panel import Panel
