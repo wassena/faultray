@@ -73,10 +73,7 @@ class TestMetricCollection:
         procs = agent.collect_processes()
         # Should find at least the current process
         assert len(procs) > 0
-        pids = [p.pid for p in procs]
-        import os
-        # Our PID should be present (unless access denied)
-        # Don't assert strictly — some CI envs restrict proc access
+        # At least some process should be found (our python process)
 
     def test_collect_processes_with_filter(self) -> None:
         cfg = AgentConfig(process_filter=["python"])

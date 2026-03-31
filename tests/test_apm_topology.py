@@ -160,7 +160,7 @@ class TestTopologyUpdate:
                 ]),
             ],
         )
-        changes = update_topology_from_batch(batch)
+        update_topology_from_batch(batch)
         assert graph.get_component("svc-agent1-80") is not None
 
     def test_discovers_remote_dependencies(self, graph: InfraGraph) -> None:
