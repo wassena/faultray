@@ -48,7 +48,14 @@ def badge(
         faultray badge infra.yaml --url
         faultray badge infra.yaml --label "infra score"
     """
-    graph = _load_graph_for_analysis(yaml_file, yaml_file)
+    try:
+        graph = _load_graph_for_analysis(yaml_file, yaml_file)
+    except (ValueError, RuntimeError) as exc:
+        console.print(f"[red]{exc}[/]")
+        raise typer.Exit(1) from exc
+    except Exception as exc:  # noqa: BLE001
+        console.print(f"[red]Failed to load infrastructure: {exc}[/]")
+        raise typer.Exit(1) from exc
     score = int(round(graph.resilience_score()))
     url = _badge_url(score, label)
 
