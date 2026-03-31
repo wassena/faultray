@@ -434,7 +434,7 @@ class TestFullPipelineWorkflows:
 
         graph = create_demo_graph()
         engine = SimulationEngine(graph)
-        report = engine.run_all_defaults(include_feed=False, include_plugins=False)
+        _report = engine.run_all_defaults(include_feed=False, include_plugins=False)
 
         # MonteCarloも実行できること
         mc_result = run_monte_carlo(graph, n_trials=100, seed=42)

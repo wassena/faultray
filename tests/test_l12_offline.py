@@ -34,7 +34,7 @@ class TestOfflineCoreFeatures:
 
     def _block_network(self):
         """Context manager that blocks all socket connections."""
-        original_connect = socket.socket.connect
+        _original_connect = socket.socket.connect
 
         def blocked_connect(*args, **kwargs):
             raise OSError("Network blocked by test")

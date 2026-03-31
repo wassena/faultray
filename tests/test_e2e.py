@@ -200,7 +200,7 @@ class TestE2EHappyPath:
             )
             assert r.returncode == 0
             # Should contain some governance output (METI or ISO)
-            combined = r.stdout + r.stderr
+            _combined = r.stdout + r.stderr
             assert "METI" in combined or "ISO" in combined or "governance" in combined.lower()
         finally:
             os.unlink(yaml_path)
@@ -247,7 +247,7 @@ class TestE2EEdgeCases:
     def test_nonexistent_file(self) -> None:
         r = run("faultray load /tmp/_faultray_no_such_file_12345.yaml")
         assert r.returncode != 0
-        combined = r.stdout + r.stderr
+        _combined = r.stdout + r.stderr
         assert "not found" in combined.lower() or "no such file" in combined.lower() or "does not exist" in combined.lower()
 
     def test_empty_components_list(self) -> None:
@@ -460,7 +460,7 @@ class TestE2EErrorQuality:
     def test_unknown_command_shows_help(self) -> None:
         r = run("faultray this-command-does-not-exist")
         assert r.returncode != 0
-        combined = r.stdout + r.stderr
+        _combined = r.stdout + r.stderr
         # Should show usage info or error, not a stack trace
         _no_traceback(r)
 

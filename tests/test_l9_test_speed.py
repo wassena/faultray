@@ -30,7 +30,7 @@ class TestOperationSpeed:
         """Creating a demo graph should take under 100ms."""
         start = time.monotonic()
         from faultray.model.demo import create_demo_graph
-        graph = create_demo_graph()
+        _graph = create_demo_graph()
         elapsed = time.monotonic() - start
         assert elapsed < 0.1, f"Graph creation took {elapsed:.3f}s"
 
@@ -51,7 +51,7 @@ class TestOperationSpeed:
         yaml_file.write_text(yaml.dump(yaml_content))
 
         start = time.monotonic()
-        graph = load_yaml(yaml_file)
+        _graph = load_yaml(yaml_file)
         elapsed = time.monotonic() - start
         assert elapsed < 0.2, f"YAML parse took {elapsed:.3f}s"
 
@@ -65,7 +65,7 @@ class TestOperationSpeed:
         engine = SimulationEngine(graph)
 
         start = time.monotonic()
-        report = engine.run_all_defaults(include_feed=False, include_plugins=False)
+        _report = engine.run_all_defaults(include_feed=False, include_plugins=False)
         elapsed = time.monotonic() - start
         assert elapsed < 2.0, f"Demo simulation took {elapsed:.3f}s"
 
@@ -77,7 +77,7 @@ class TestOperationSpeed:
 
         graph = create_demo_graph()
         start = time.monotonic()
-        result = run_monte_carlo(graph, n_trials=100, seed=42)
+        _result = run_monte_carlo(graph, n_trials=100, seed=42)
         elapsed = time.monotonic() - start
         assert elapsed < 1.0, f"Monte Carlo took {elapsed:.3f}s"
 
@@ -130,6 +130,6 @@ class TestSlowTestDetection:
         graph = InfraGraph()
         engine = SimulationEngine(graph)
         start = time.monotonic()
-        report = engine.run_all_defaults(include_feed=False, include_plugins=False)
+        _report = engine.run_all_defaults(include_feed=False, include_plugins=False)
         elapsed = time.monotonic() - start
         assert elapsed < 0.5, f"Empty simulation took {elapsed:.3f}s"

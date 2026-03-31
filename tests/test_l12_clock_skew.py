@@ -238,7 +238,7 @@ class TestReportTimestampConsistency:
         graph1 = create_demo_graph()
         engine1 = SimulationEngine(graph1)
 
-        t1_before = time.monotonic()
+        _t1_before = time.monotonic()
         report1 = engine1.run_all_defaults(include_feed=False, include_plugins=False)
         t1_after = time.monotonic()
 
@@ -247,7 +247,7 @@ class TestReportTimestampConsistency:
 
         t2_before = time.monotonic()
         report2 = engine2.run_all_defaults(include_feed=False, include_plugins=False)
-        t2_after = time.monotonic()
+        _t2_after = time.monotonic()
 
         # The second simulation must start after the first completed
         assert t2_before >= t1_after

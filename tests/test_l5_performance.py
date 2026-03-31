@@ -150,7 +150,7 @@ class TestMemoryUsage:
 
         graph = _build_large_topology(100)
         engine = SimulationEngine(graph)
-        report = engine.run_all_defaults(include_feed=False, include_plugins=False)
+        _report = engine.run_all_defaults(include_feed=False, include_plugins=False)
 
         mem_after = process.memory_info().rss
         mem_delta_mb = (mem_after - mem_before) / (1024 * 1024)

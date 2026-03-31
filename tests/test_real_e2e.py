@@ -183,7 +183,7 @@ class TestRealPipeline:
         assert len(report.results) > 0
 
         # 4. DBがSPOFであることを検出しているか
-        critical = [s for s in report.results
+        _critical = [s for s in report.results
                     if hasattr(s, "risk_score") in ("CRITICAL", "critical")]
         # replicas=1のDBは障害点として検出されるべき
         # （検出されない場合もあるが、シナリオ自体は生成されるはず）
