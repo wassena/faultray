@@ -8,9 +8,9 @@ class TestSDKVersion:
         import faultray
         assert isinstance(faultray.__version__, str)
 
-    def test_version_is_11_0_0(self):
+    def test_version_is_11_1_0(self):
         import faultray
-        assert faultray.__version__ == "11.0.0"
+        assert faultray.__version__ == "11.1.0"
 
 
 class TestSDKAllExports:
