@@ -317,6 +317,12 @@ class TestHelpTextMatchesOptions:
         assert result.exit_code == 0
         assert "faultray" in result.output.lower() or "usage" in result.output.lower()
 
+    @staticmethod
+    def _strip_ansi(text: str) -> str:
+        """Remove ANSI escape sequences from text."""
+        import re
+        return re.sub(r'\x1b\[[0-9;]*[mA-Za-z]', '', text)
+
     def test_simulate_help_shows_options(self):
         """simulate --help should document --model, --json, --dynamic."""
         from typer.testing import CliRunner
@@ -325,7 +331,7 @@ class TestHelpTextMatchesOptions:
         runner = CliRunner()
         result = runner.invoke(app, ["simulate", "--help"])
         assert result.exit_code == 0
-        output = result.output.lower()
+        output = self._strip_ansi(result.output).lower()
         assert "--model" in output, "simulate --help should document --model"
         assert "--json" in output, "simulate --help should document --json"
 
@@ -337,7 +343,7 @@ class TestHelpTextMatchesOptions:
         runner = CliRunner()
         result = runner.invoke(app, ["evaluate", "--help"])
         assert result.exit_code == 0
-        output = result.output.lower()
+        output = self._strip_ansi(result.output).lower()
         assert "--model" in output or "--json" in output
 
     @pytest.mark.parametrize("cmd", [

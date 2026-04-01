@@ -48,15 +48,12 @@ async def api_versions():
 @router.get("/api-docs", response_class=HTMLResponse)
 async def api_docs_page(request: Request):
     """Interactive API documentation."""
-    return templates.TemplateResponse("api_docs.html", {
-        "request": request,
-    })
+    return templates.TemplateResponse(request, "api_docs.html", {})
 
 
 @router.get("/settings", response_class=HTMLResponse)
 async def settings_page(request: Request):
-    return templates.TemplateResponse("settings.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "settings.html", {
         "has_data": True,
     })
 
@@ -194,8 +191,7 @@ async def marketplace_page(request: Request):
     """Marketplace HTML page."""
     graph = get_graph()
     has_data = bool(graph and graph.components)
-    return templates.TemplateResponse("marketplace.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "marketplace.html", {
         "has_data": has_data,
         "active_page": "marketplace",
     })
@@ -300,8 +296,7 @@ async def search_marketplace_packages(q: str = ""):
 async def calendar_page(request: Request):
     """Chaos Calendar page."""
     graph = get_graph()
-    return templates.TemplateResponse("calendar.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "calendar.html", {
         "has_data": len(graph.components) > 0,
         "active_page": "calendar",
     })
@@ -416,8 +411,7 @@ async def chat_page(request: Request):
     suggestions = engine.get_suggestions(graph) if graph.components else [
         "Load the demo infrastructure first",
     ]
-    return templates.TemplateResponse("chat.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "chat.html", {
         "has_data": len(graph.components) > 0,
         "suggestions": suggestions,
         "active_page": "chat",
@@ -508,8 +502,7 @@ async def templates_page(request: Request, category: str | None = None):
     for td in template_data:
         td["category_value"] = td["category"]
 
-    return templates.TemplateResponse("gallery.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "gallery.html", {
         "has_data": True,
         "gallery_templates": template_data,
         "categories": categories,
@@ -575,8 +568,7 @@ async def agents_page(request: Request):
         scenarios = generate_agent_scenarios(graph)
         scenarios_data = [s.model_dump() for s in scenarios]
 
-    return templates.TemplateResponse("agents.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "agents.html", {
         "has_data": has_data,
         "active_page": "agents",
         "assessments": assessment_data,
@@ -659,8 +651,7 @@ async def supply_chain_page(request: Request):
         report = engine.analyze_all_packages()
         report_data = dataclasses.asdict(report)
 
-    return templates.TemplateResponse("supply_chain.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "supply_chain.html", {
         "has_data": has_data,
         "active_page": "supply_chain",
         "report": report_data,

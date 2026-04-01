@@ -37,8 +37,7 @@ async def simulation_page(request: Request):
     if _last_report is not None:
         report_data = _report_to_dict(_last_report)
 
-    return templates.TemplateResponse("simulation.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "simulation.html", {
         "report": report_data,
         "has_data": len(get_graph().components) > 0,
     })
@@ -289,8 +288,7 @@ async def replay_incident(
 async def whatif_page(request: Request):
     """Interactive what-if analysis page."""
     graph = get_graph()
-    return templates.TemplateResponse("whatif.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "whatif.html", {
         "has_data": len(graph.components) > 0,
         "active_page": "whatif",
     })
@@ -463,8 +461,7 @@ async def whatif_export(request: Request):
 async def chaos_monkey_page(request: Request):
     """Chaos Monkey dashboard."""
     graph = get_graph()
-    return templates.TemplateResponse("chaos_monkey.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "chaos_monkey.html", {
         "has_data": bool(graph.components),
         "active_page": "chaos_monkey",
     })
@@ -551,8 +548,7 @@ async def api_chaos_monkey(request: Request):
 async def fmea_page(request: Request):
     """FMEA dashboard."""
     graph = get_graph()
-    return templates.TemplateResponse("fmea.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "fmea.html", {
         "has_data": bool(graph.components),
         "active_page": "fmea",
     })
@@ -621,8 +617,7 @@ async def api_fmea(
 async def anomaly_page(request: Request):
     """Anomaly Detection page."""
     graph = get_graph()
-    return templates.TemplateResponse("anomaly.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "anomaly.html", {
         "has_data": bool(graph and graph.components),
         "active_page": "anomaly",
     })
@@ -697,8 +692,7 @@ async def api_anomalies(
 async def optimizer_page(request: Request):
     """Pareto Optimizer page."""
     graph = get_graph()
-    return templates.TemplateResponse("optimizer.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "optimizer.html", {
         "has_data": bool(graph and graph.components),
         "active_page": "optimizer",
     })
@@ -799,8 +793,7 @@ async def analyze_page(request: Request):
         ai_report = analyzer.analyze(graph, _last_report)
         analysis_data = dataclasses.asdict(ai_report)
 
-    return templates.TemplateResponse("analyze.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "analyze.html", {
         "has_data": has_data,
         "analysis": analysis_data,
     })
@@ -872,8 +865,7 @@ async def advisor_page(request: Request, target_nines: float = 4.0):
         report = advisor.advise(graph, target_nines=target_nines)
         advisor_data = dataclasses.asdict(report)
 
-    return templates.TemplateResponse("advisor.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "advisor.html", {
         "has_data": has_data,
         "report": advisor_data,
         "target_nines": target_nines,

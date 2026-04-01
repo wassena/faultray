@@ -441,8 +441,7 @@ async def billing_usage(team_id: str = "", user=Depends(_require_permission("vie
 @app.get("/billing", response_class=HTMLResponse)
 async def billing_page(request: Request):
     """Billing management page."""
-    return templates.TemplateResponse("billing.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "billing.html", {
         "has_data": True,
         "stripe_enabled": _stripe_mgr.enabled,
         "tiers": {

@@ -7,6 +7,10 @@ build/
 *.json
 !pyproject.toml
 !examples/*.json
+!src/faultray/api/static/manifest.json
+!vscode-extension/package.json
+!vscode-extension/tsconfig.json
+!mcp-server.json
 .ruff_cache/
 .pytest_cache/
 faultray-model.json

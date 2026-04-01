@@ -18,7 +18,19 @@ def _iter_modules():
         yield modname
 
 
+# Modules that require optional extras (not installed in default CI).
+# These are skipped rather than failed when their dependency is absent.
+_OPTIONAL_EXTRA_MODULES = {
+    "faultray.mcp_server",  # requires mcp extra: pip install faultray[mcp]
+}
+
+
 @pytest.mark.parametrize("module_name", list(_iter_modules()))
 def test_import(module_name):
     """Every module in the faultray package should be importable."""
-    importlib.import_module(module_name)
+    try:
+        importlib.import_module(module_name)
+    except ImportError as exc:
+        if module_name in _OPTIONAL_EXTRA_MODULES:
+            pytest.skip(f"{module_name} requires optional extra (not installed): {exc}")
+        raise

@@ -28,8 +28,7 @@ router = APIRouter()
 
 @router.get("/graph", response_class=HTMLResponse)
 async def graph_page(request: Request):
-    return templates.TemplateResponse("graph.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "graph.html", {
         "has_data": len(get_graph().components) > 0,
     })
 
@@ -139,8 +138,7 @@ async def get_topology(user=Depends(_require_permission("view_results"))):
 @router.get("/blast-radius", response_class=HTMLResponse)
 async def blast_radius_page(request: Request):
     """Interactive blast radius visualizer."""
-    return templates.TemplateResponse("blast_radius.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "blast_radius.html", {
         "has_data": len(get_graph().components) > 0,
     })
 
@@ -153,8 +151,7 @@ async def blast_radius_page(request: Request):
 async def heatmap_page(request: Request):
     """Interactive risk heat map page."""
     graph = get_graph()
-    return templates.TemplateResponse("heatmap.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "heatmap.html", {
         "has_data": len(graph.components) > 0,
         "active_page": "heatmap",
     })
@@ -233,8 +230,7 @@ async def cost_attribution_page(request: Request):
         except Exception:
             logger.warning("Cost attribution analysis failed", exc_info=True)
 
-    return templates.TemplateResponse("cost_attribution.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "cost_attribution.html", {
         "has_data": len(graph.components) > 0,
         "active_page": "cost_attribution",
         "report": report_data,
@@ -310,8 +306,7 @@ async def api_cost_attribution(
 @router.get("/topology-diff", response_class=HTMLResponse)
 async def topology_diff_page(request: Request):
     """Topology Diff page."""
-    return templates.TemplateResponse("topology_diff.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "topology_diff.html", {
         "has_data": True,
         "active_page": "topology_diff",
     })
@@ -451,8 +446,7 @@ async def score_explain_page(request: Request):
         decomposition = decomposer.decompose(graph)
         decomposition_data = decomposition.to_dict()
 
-    return templates.TemplateResponse("score_explain.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "score_explain.html", {
         "has_data": has_data,
         "decomposition": decomposition_data,
     })
@@ -493,8 +487,7 @@ async def attack_surface_page(request: Request):
         report = analyzer.analyze(graph)
         report_data = report.to_dict()
 
-    return templates.TemplateResponse("attack_surface.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "attack_surface.html", {
         "has_data": has_data,
         "report": report_data,
     })
@@ -548,8 +541,7 @@ async def components_page(request: Request):
             "tags": comp.tags,
         })
 
-    return templates.TemplateResponse("components.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "components.html", {
         "components": comps,
         "has_data": len(comps) > 0,
     })

@@ -144,8 +144,7 @@ async def dashboard(request: Request):
         },
     }
 
-    return templates.TemplateResponse("dashboard.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "dashboard.html", {
         "summary": summary,
         "has_data": len(graph.components) > 0,
         "report": report_data,
@@ -350,8 +349,7 @@ async def htmx_score_cards(request: Request):
     if _last_report is not None:
         report_data = _report_to_dict(_last_report)
 
-    return templates.TemplateResponse("fragments/score_cards.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "fragments/score_cards.html", {
         "summary": summary,
         "report": report_data,
     })
@@ -365,8 +363,7 @@ async def htmx_risk_table(request: Request):
     if _last_report is not None:
         report_data = _report_to_dict(_last_report)
 
-    return templates.TemplateResponse("fragments/risk_table.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "fragments/risk_table.html", {
         "report": report_data,
     })
 
@@ -456,8 +453,7 @@ async def get_badge_markdown(base_url: str = "http://localhost:8000"):
 @router.get("/reports", response_class=HTMLResponse)
 async def reports_page(request: Request):
     _last_report = get_last_report()
-    return templates.TemplateResponse("reports.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "reports.html", {
         "has_data": _last_report is not None,
     })
 

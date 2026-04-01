@@ -1,0 +1,52 @@
+{
+  "name": "faultray-vscode",
+  "displayName": "FaultRay",
+  "description": "Infrastructure resilience scoring for VS Code",
+  "version": "0.1.0",
+  "publisher": "faultray",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": ["Other"],
+  "main": "./out/extension.js",
+  "activationEvents": [],
+  "contributes": {
+    "commands": [
+      {
+        "command": "faultzero.scan",
+        "title": "FaultRay: Scan Infrastructure"
+      },
+      {
+        "command": "faultzero.simulate",
+        "title": "FaultRay: Run Simulation"
+      },
+      {
+        "command": "faultzero.showScore",
+        "title": "FaultRay: Show Score"
+      }
+    ],
+    "configuration": {
+      "title": "FaultRay",
+      "properties": {
+        "faultray.modelPath": {
+          "type": "string",
+          "default": "faultray-model.json",
+          "description": "Path to infrastructure model file"
+        },
+        "faultray.autoScan": {
+          "type": "boolean",
+          "default": false,
+          "description": "Auto-scan on file save"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.80.0",
+    "typescript": "^5.0.0"
+  }
+}

@@ -99,8 +99,11 @@ class TestEntryPoints:
         assert hasattr(mod, "app")
 
     def test_mcp_server_module_importable(self) -> None:
-        """The MCP server module should be importable."""
-        mod = importlib.import_module("faultray.mcp_server")
+        """The MCP server module should be importable (skipped if mcp extra not installed)."""
+        try:
+            mod = importlib.import_module("faultray.mcp_server")
+        except ImportError as exc:
+            pytest.skip(f"faultray.mcp_server requires optional mcp extra: {exc}")
         assert hasattr(mod, "main")
 
     def test_faultray_help_runs(self) -> None:
