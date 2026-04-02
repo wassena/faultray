@@ -114,6 +114,7 @@ _KNOWN_MODULES: list[str] = [
     "badge_cmd",
     "remediate_cmd",
     "coupon_cmd",
+    "slo_impact_cmd",
 ]
 
 
@@ -219,6 +220,7 @@ _HELP_PANELS: dict[str, str] = {
     "sla-prove": "📝 SLA & Contracts",
     "sla-improve": "📝 SLA & Contracts",
     "slo-budget": "📝 SLA & Contracts",
+    "slo-impact": "📝 SLA & Contracts",
     "budget": "📝 SLA & Contracts",
     # --- Web & API ---
     "serve": "🌐 Web & API",

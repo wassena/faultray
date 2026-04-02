@@ -20,6 +20,10 @@ components:
       cpu_percent: 15
       memory_percent: 20
       disk_percent: 25
+    cost_profile:
+      revenue_per_minute: 5.0       # $300/hr — typical mid-size SaaS
+      hourly_infra_cost: 15.0
+      sla_credit_percent: 10.0
 
   - id: app-1
     name: "api-server-1"
@@ -67,6 +71,9 @@ components:
     metrics:
       cpu_percent: 20
       memory_percent: 26
+    cost_profile:
+      revenue_per_minute: 5.0       # DB serves same revenue stream
+      hourly_infra_cost: 25.0
       disk_percent: 24
       network_connections: 40
 
