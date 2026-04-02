@@ -77,11 +77,16 @@ def _build_plugin_builtins() -> dict[str, Any]:
     import builtins as _builtins_mod
 
     real_import = _builtins_mod.__import__
+    import builtins as _builtins_mod2  # noqa: PLC0415
+
     return {
         # Boolean / None constants
         "True": True,
         "False": False,
         "None": None,
+        # Class definition support — required for 'class Foo:' statements in plugins
+        "__build_class__": _builtins_mod2.__build_class__,  # type: ignore[attr-defined]
+        "__name__": "__plugin__",
         # Safe built-in functions
         "print": print,
         "len": len,
@@ -492,10 +497,16 @@ class PluginManager:
 
         module = types.ModuleType(f"_fz_plugin_{py_file.stem}")
         module.__file__ = str(py_file)
-        # Execute with a restricted __builtins__ to limit the attack surface.
-        # _PLUGIN_SAFE_BUILTINS allows only a whitelist of built-ins and
-        # blocks unrestricted __import__ to prevent loading arbitrary modules.
-        exec(code, {**module.__dict__, "__builtins__": _PLUGIN_SAFE_BUILTINS})  # noqa: S102
+        # Inject restricted __builtins__ into the module namespace before exec.
+        # This limits the attack surface of exec()-loaded plugins:
+        # - Only a whitelist of built-ins is exposed.
+        # - __import__ is replaced with a module-allowlist enforcer.
+        # We mutate module.__dict__ directly so that classes defined in the
+        # plugin code are stored back into the same dict object (exec writes
+        # its definitions into the *globals* dict that is passed in, and
+        # module.__dict__ IS that dict).
+        module.__dict__["__builtins__"] = _PLUGIN_SAFE_BUILTINS  # type: ignore[assignment]
+        exec(code, module.__dict__)  # noqa: S102
         self._plugin_modules[plugin_name] = module
 
         # Look for a class that matches PluginInterface (has name, version, execute)
