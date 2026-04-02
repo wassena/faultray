@@ -63,6 +63,8 @@ def _tier_banner() -> str:
     tier = get_active_tier()
     if tier == PricingTier.ENTERPRISE:
         label = "Enterprise License"
+    elif tier == PricingTier.BUSINESS:
+        label = "Business License (Coupon)"
     elif tier == PricingTier.PRO:
         label = "Pro License"
     else:

@@ -76,10 +76,12 @@ _TIER_ORDER: list[FeatureTier] = [
     FeatureTier.ENTERPRISE,
 ]
 
-# Map between PricingTier and FeatureTier (they share the same values).
+# Map between PricingTier and FeatureTier.
+# PricingTier.BUSINESS maps to FeatureTier.ENTERPRISE (same feature set).
 _PRICING_TO_FEATURE: dict[PricingTier, FeatureTier] = {
     PricingTier.FREE: FeatureTier.FREE,
     PricingTier.PRO: FeatureTier.PRO,
+    PricingTier.BUSINESS: FeatureTier.ENTERPRISE,
     PricingTier.ENTERPRISE: FeatureTier.ENTERPRISE,
 }
 
@@ -184,23 +186,42 @@ def verify_license_key(key: str, secret: str | None = None) -> PricingTier | Non
 
 
 def get_active_tier() -> PricingTier:
-    """Return the active pricing tier based on the ``FAULTRAY_LICENSE_KEY`` env var.
+    """Return the active pricing tier.
 
-    Returns :attr:`PricingTier.FREE` when no key is set or the key is invalid.
+    Resolution order:
+
+    1. ``FAULTRAY_LICENSE_KEY`` environment variable (HMAC-signed key).
+    2. Active redeemed coupon in ``~/.faultray/license.json``.
+    3. :attr:`PricingTier.FREE` (default).
     """
     key = os.environ.get(_ENV_LICENSE_KEY, "")
-    if not key:
-        return PricingTier.FREE
+    if key:
+        tier = verify_license_key(key)
+        if tier is None:
+            logger.warning(
+                "Invalid license key in %s; falling back to coupon / FREE tier",
+                _ENV_LICENSE_KEY,
+            )
+        else:
+            return tier
 
-    tier = verify_license_key(key)
-    if tier is None:
-        logger.warning(
-            "Invalid license key in %s; falling back to FREE tier",
-            _ENV_LICENSE_KEY,
-        )
-        return PricingTier.FREE
+    # Fall through to coupon-based tier
+    try:
+        from faultray.coupon import get_active_coupon_tier
 
-    return tier
+        coupon_tier_str = get_active_coupon_tier()
+        if coupon_tier_str is not None:
+            try:
+                return PricingTier(coupon_tier_str)
+            except ValueError:
+                logger.warning(
+                    "Unknown tier value in license.json: %r; ignoring coupon",
+                    coupon_tier_str,
+                )
+    except Exception:
+        logger.debug("Could not read coupon tier", exc_info=True)
+
+    return PricingTier.FREE
 
 
 def get_active_limits() -> UsageLimits:

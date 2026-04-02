@@ -113,6 +113,7 @@ _KNOWN_MODULES: list[str] = [
     "start_cmd",
     "badge_cmd",
     "remediate_cmd",
+    "coupon_cmd",
 ]
 
 
@@ -247,6 +248,7 @@ _HELP_PANELS: dict[str, str] = {
     "correlate": "🔧 Utilities",
     "autoscale": "🔧 Utilities",
     "remediate": "🔧 Autonomous Remediation",
+    "coupon": "🔧 Utilities",
     "backtest": "🔧 Utilities",
     "plan": "🔧 Utilities",
     "overmind": "🔧 Utilities",

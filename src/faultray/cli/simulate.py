@@ -57,9 +57,9 @@ def _dynamic_results_to_json(results: list) -> dict:
 def _static_report_to_json(report: object) -> dict:
     """Convert a static SimulationReport to a JSON-serialisable dict."""
     results = getattr(report, "results", [])
-    critical_findings = getattr(report, "critical_findings", [])
-    warnings = getattr(report, "warnings", [])
-    passed = getattr(report, "passed", [])
+    getattr(report, "critical_findings", [])
+    getattr(report, "warnings", [])
+    getattr(report, "passed", [])
 
     scenarios = []
     for r in results:
