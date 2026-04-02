@@ -72,6 +72,39 @@ def _make_safe_import(real_import: Any) -> Any:
     return _safe_import
 
 
+# Dunder attribute names that could be used for sandbox escape via __subclasses__() etc.
+_BLOCKED_DUNDER_ATTRS: frozenset[str] = frozenset(
+    {
+        "__class__",
+        "__bases__",
+        "__subclasses__",
+        "__mro__",
+        "__dict__",
+        "__globals__",
+        "__builtins__",
+        "__code__",
+        "__func__",
+        "__self__",
+        "__wrapped__",
+        "__closure__",
+        "__init__",
+        "__new__",
+        "__reduce__",
+        "__reduce_ex__",
+        "__getattribute__",
+    }
+)
+
+
+def _safe_getattr(obj: Any, name: str, *args: Any) -> Any:
+    """Sandbox-safe getattr that blocks dunder attributes used for escape paths."""
+    if name in _BLOCKED_DUNDER_ATTRS:
+        raise AttributeError(
+            f"Plugin sandbox: access to '{name}' is not permitted"
+        )
+    return getattr(obj, name, *args)
+
+
 def _build_plugin_builtins() -> dict[str, Any]:
     """Build a restricted ``__builtins__`` mapping for exec()-loaded plugins."""
     import builtins as _builtins_mod
@@ -122,13 +155,10 @@ def _build_plugin_builtins() -> dict[str, Any]:
         "isinstance": isinstance,
         "issubclass": issubclass,
         "hasattr": hasattr,
-        "getattr": getattr,
-        "setattr": setattr,
-        "delattr": delattr,
-        "type": type,
+        # getattr/setattr/delattr/type/dir/vars are replaced with safe wrappers
+        # to prevent __subclasses__() sandbox escape via inherited __globals__
+        "getattr": _safe_getattr,
         "callable": callable,
-        "dir": dir,
-        "vars": vars,
         # Iteration / functional helpers
         "iter": iter,
         "next": next,

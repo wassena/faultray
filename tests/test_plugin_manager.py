@@ -478,3 +478,69 @@ class TestPluginManagerListing:
         manager = PluginManager(plugin_dirs=[tmp_path])
         reporters = manager.get_plugins_by_type(PluginType.REPORTER)
         assert len(reporters) == 0
+
+
+# ---------------------------------------------------------------------------
+# Sandbox security tests
+# ---------------------------------------------------------------------------
+
+class TestPluginSandboxSecurity:
+    """Verify that exec()-loaded plugins cannot escape the restricted sandbox."""
+
+    def test_blocked_dunder_getattr(self, tmp_path: Path):
+        """__class__ and other dunder attrs are blocked via _safe_getattr."""
+        from faultray.plugins.plugin_manager import _PLUGIN_SAFE_BUILTINS
+
+        code = """
+class Foo:
+    bar = 1
+f = Foo()
+result = getattr(f, "__class__")
+"""
+        with pytest.raises((AttributeError, NameError)):
+            exec(code, {"__builtins__": _PLUGIN_SAFE_BUILTINS})
+
+    def test_blocked_subclasses_escape(self, tmp_path: Path):
+        """Classical __subclasses__() sandbox escape path is blocked."""
+        from faultray.plugins.plugin_manager import _PLUGIN_SAFE_BUILTINS
+
+        # This is the classic Python sandbox escape via inherited __globals__
+        code = """
+class Foo:
+    bar = 1
+f = Foo()
+cls = getattr(f, "__class__")
+"""
+        with pytest.raises((AttributeError, NameError)):
+            exec(code, {"__builtins__": _PLUGIN_SAFE_BUILTINS})
+
+    def test_blocked_os_import(self, tmp_path: Path):
+        """Plugins cannot import os or subprocess."""
+        from faultray.plugins.plugin_manager import _PLUGIN_SAFE_BUILTINS
+
+        code = "import os"
+        with pytest.raises(ImportError):
+            exec(code, {"__builtins__": _PLUGIN_SAFE_BUILTINS})
+
+    def test_allowed_math_import(self, tmp_path: Path):
+        """Plugins can import whitelisted modules."""
+        from faultray.plugins.plugin_manager import _PLUGIN_SAFE_BUILTINS
+
+        code = "import math; result = math.pi"
+        ns: dict = {}
+        exec(code, {"__builtins__": _PLUGIN_SAFE_BUILTINS}, ns)
+        assert abs(ns["result"] - 3.14159) < 0.001
+
+    def test_normal_getattr_works(self, tmp_path: Path):
+        """Non-dunder getattr still works inside sandbox."""
+        from faultray.plugins.plugin_manager import _PLUGIN_SAFE_BUILTINS
+
+        code = """
+class Foo:
+    bar = 42
+f = Foo()
+result = getattr(f, "bar")
+"""
+        ns: dict = {}
+        exec(code, {"__builtins__": _PLUGIN_SAFE_BUILTINS}, ns)
+        assert ns["result"] == 42
