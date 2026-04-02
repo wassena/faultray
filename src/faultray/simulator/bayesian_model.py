@@ -92,6 +92,18 @@ class BayesianEngine:
         self._priors: dict[str, float] = {}
         self._compute_priors()
 
+    # Default MTTR (minutes) when component has no explicit profile
+    _DEFAULT_MTTR: dict[str, float] = {
+        "app_server": 15.0,
+        "web_server": 10.0,
+        "database": 30.0,
+        "cache": 5.0,
+        "load_balancer": 10.0,
+        "queue": 15.0,
+        "dns": 5.0,
+        "storage": 30.0,
+    }
+
     def _compute_priors(self) -> None:
         """Compute prior failure probability for each component."""
         for comp in self._graph.components.values():
@@ -99,6 +111,8 @@ class BayesianEngine:
             if mtbf <= 0:
                 mtbf = _DEFAULT_MTBF.get(comp.type.value, 2160.0)
             mttr = comp.operational_profile.mttr_minutes
+            if mttr <= 0:
+                mttr = self._DEFAULT_MTTR.get(comp.type.value, 15.0)
 
             # Account for replicas: P(all fail) = P(single fail)^replicas
             p_single = _prior_failure_prob(mtbf, mttr)
@@ -166,8 +180,8 @@ class BayesianEngine:
 
             results.append(BayesianResult(
                 component_id=comp.id,
-                prior_failure_prob=round(p_fail, 6),
-                posterior_given_deps=round(posterior, 6),
+                prior_failure_prob=p_fail,
+                posterior_given_deps=posterior,
                 conditional_impacts=conditional_impacts,
                 most_critical_dependency=most_critical,
             ))

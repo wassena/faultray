@@ -230,10 +230,18 @@ def bayesian(
             f"{k}={v:.4f}" for k, v in list(r.conditional_impacts.items())[:3]
         ) if r.conditional_impacts else "-"
 
+        # Use scientific notation for very small probabilities
+        def _fmt_prob(p: float) -> str:
+            if p == 0:
+                return "0"
+            if p < 0.0001:
+                return f"{p:.2e}"
+            return f"{p:.6f}"
+
         table.add_row(
             r.component_id,
-            f"{r.prior_failure_prob:.6f}",
-            f"{r.posterior_given_deps:.6f}",
+            _fmt_prob(r.prior_failure_prob),
+            _fmt_prob(r.posterior_given_deps),
             r.most_critical_dependency or "-",
             impact_str,
         )

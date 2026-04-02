@@ -260,20 +260,80 @@ class ScoreDecomposer:
             running_score -= total_spof_penalty
 
         # ------------------------------------------------------------------
-        # Utilization Penalties
+        # Host Colocation Penalty (replicas on same host = false redundancy)
+        # ------------------------------------------------------------------
+        total_host_penalty = 0.0
+        host_colocated_comps: list[str] = []
+
+        for comp in graph.components.values():
+            if comp.replicas >= 2 and comp.host:
+                dependents = graph.get_dependents(comp.id)
+                if len(dependents) > 0:
+                    penalty = min(10, len(dependents) * 3)
+                    total_host_penalty += penalty
+                    host_colocated_comps.append(comp.id)
+
+        if total_host_penalty > 0:
+            factors.append(ScoreFactor(
+                name="Same-Host Replicas",
+                category="penalty",
+                points=-total_host_penalty,
+                description=(
+                    f"{len(host_colocated_comps)} component(s) have replicas on the same host. "
+                    "If the host fails, all replicas fail together."
+                ),
+                affected_components=host_colocated_comps,
+                remediation="Distribute replicas across different hosts or availability zones.",
+            ))
+            running_score -= total_host_penalty
+
+        # ------------------------------------------------------------------
+        # Failover Missing Penalty
+        # ------------------------------------------------------------------
+        total_failover_penalty = 0.0
+        no_failover_comps: list[str] = []
+
+        for comp in graph.components.values():
+            dependents = graph.get_dependents(comp.id)
+            if len(dependents) > 0 and not comp.failover.enabled:
+                penalty = min(5, len(dependents) * 1.5)
+                total_failover_penalty += penalty
+                no_failover_comps.append(comp.id)
+
+        if total_failover_penalty > 0:
+            factors.append(ScoreFactor(
+                name="Missing Failover",
+                category="penalty",
+                points=-total_failover_penalty,
+                description=(
+                    f"{len(no_failover_comps)} component(s) with dependents have no failover configured."
+                ),
+                affected_components=no_failover_comps,
+                remediation="Enable failover with health checks on critical components.",
+            ))
+            running_score -= total_failover_penalty
+
+        # ------------------------------------------------------------------
+        # Utilization Penalties (per-metric: CPU, memory, disk independently)
         # ------------------------------------------------------------------
         total_util_penalty = 0.0
         high_util_comps: list[str] = []
 
         for comp in graph.components.values():
-            util = comp.utilization()
             comp_penalty = 0.0
-            if util > 90:
-                comp_penalty = 15
-            elif util > 80:
-                comp_penalty = 8
-            elif util > 70:
-                comp_penalty = 3
+            for metric_val in [
+                comp.metrics.cpu_percent,
+                comp.metrics.memory_percent,
+                comp.metrics.disk_percent,
+            ]:
+                if metric_val >= 95:
+                    comp_penalty += 10
+                elif metric_val >= 90:
+                    comp_penalty += 7
+                elif metric_val >= 80:
+                    comp_penalty += 4
+                elif metric_val >= 70:
+                    comp_penalty += 1
 
             if comp_penalty > 0:
                 total_util_penalty += comp_penalty
@@ -286,7 +346,10 @@ class ScoreDecomposer:
                         estimated_improvement=round(comp_penalty * 0.5, 1),
                         effort="low",
                         description=(
-                            f"Enable autoscaling on '{comp.name}' (utilization: {util:.0f}%). "
+                            f"Enable autoscaling on '{comp.name}' "
+                            f"(CPU: {comp.metrics.cpu_percent}%, "
+                            f"Mem: {comp.metrics.memory_percent}%, "
+                            f"Disk: {comp.metrics.disk_percent}%). "
                             "Would help handle load spikes."
                         ),
                     ))
@@ -297,8 +360,9 @@ class ScoreDecomposer:
                 category="penalty",
                 points=-total_util_penalty,
                 description=(
-                    f"{len(high_util_comps)} component(s) above 70% utilization. "
-                    f">90%=-15pts, >80%=-8pts, >70%=-3pts per component."
+                    f"{len(high_util_comps)} component(s) have high resource usage. "
+                    "Each metric (CPU/memory/disk) penalized independently: "
+                    ">=95%=-10, >=90%=-7, >=80%=-4, >=70%=-1."
                 ),
                 affected_components=high_util_comps,
                 remediation="Scale up, enable autoscaling, or optimize resource usage.",
