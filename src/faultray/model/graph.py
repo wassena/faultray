@@ -122,6 +122,8 @@ class InfraGraph:
         score = 100.0
 
         # Penalize single points of failure, weighted by dependency type
+        # Cap total SPOF penalty so large infras don't hit 0
+        spof_penalty_total = 0.0
         for comp in self._components.values():
             dependents = self.get_dependents(comp.id)
             if comp.replicas <= 1 and len(dependents) > 0:
@@ -148,7 +150,8 @@ class InfraGraph:
                 if comp.autoscaling.enabled:
                     penalty *= 0.5  # autoscaling reduces capacity risk
 
-                score -= penalty
+                spof_penalty_total += penalty
+        score -= min(30, spof_penalty_total)  # cap at 30 points
 
         # Penalize replicas on the same host (false redundancy)
         # Cap total penalty so large infras don't get crushed
@@ -170,6 +173,8 @@ class InfraGraph:
         score -= min(15, failover_penalty_total)  # cap at 15 points
 
         # Penalize high utilization (per component, each metric independently)
+        # Cap total penalty
+        util_penalty_total = 0.0
         for comp in self._components.values():
             for metric_val in [
                 comp.metrics.cpu_percent,
@@ -177,20 +182,21 @@ class InfraGraph:
                 comp.metrics.disk_percent,
             ]:
                 if metric_val >= 95:
-                    score -= 10
+                    util_penalty_total += 10
                 elif metric_val >= 90:
-                    score -= 7
+                    util_penalty_total += 7
                 elif metric_val >= 80:
-                    score -= 4
+                    util_penalty_total += 4
                 elif metric_val >= 70:
-                    score -= 1
+                    util_penalty_total += 1
+        score -= min(25, util_penalty_total)  # cap at 25 points
 
-        # Penalize deep dependency chains
+        # Penalize deep dependency chains (cap at 10 points)
         critical_paths = self.get_critical_paths()
         if critical_paths:
             max_depth = len(critical_paths[0])
             if max_depth > 5:
-                score -= (max_depth - 5) * 5
+                score -= min(10, (max_depth - 5) * 3)
 
         return max(0.0, min(100.0, score))
 

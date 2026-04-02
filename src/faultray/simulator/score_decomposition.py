@@ -245,6 +245,8 @@ class ScoreDecomposer:
                             ),
                         ))
 
+        total_spof_penalty = min(30, total_spof_penalty)  # cap
+
         if total_spof_penalty > 0:
             factors.append(ScoreFactor(
                 name="Single Points of Failure",
@@ -356,6 +358,8 @@ class ScoreDecomposer:
                         ),
                     ))
 
+        total_util_penalty = min(25, total_util_penalty)  # cap
+
         if total_util_penalty > 0:
             factors.append(ScoreFactor(
                 name="High Utilization",
@@ -364,7 +368,7 @@ class ScoreDecomposer:
                 description=(
                     f"{len(high_util_comps)} component(s) have high resource usage. "
                     "Each metric (CPU/memory/disk) penalized independently: "
-                    ">=95%=-10, >=90%=-7, >=80%=-4, >=70%=-1."
+                    ">=95%=-10, >=90%=-7, >=80%=-4, >=70%=-1. (capped at -25)"
                 ),
                 affected_components=high_util_comps,
                 remediation="Scale up, enable autoscaling, or optimize resource usage.",
@@ -378,7 +382,7 @@ class ScoreDecomposer:
         max_depth = len(critical_paths[0]) if critical_paths else 0
         chain_penalty = 0.0
         if max_depth > 5:
-            chain_penalty = (max_depth - 5) * 5
+            chain_penalty = min(10, (max_depth - 5) * 3)
 
         if chain_penalty > 0:
             factors.append(ScoreFactor(
