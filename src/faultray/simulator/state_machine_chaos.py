@@ -380,6 +380,9 @@ _DATA_RISK_BY_TYPE: dict[ComponentType, str] = {
     ComponentType.LLM_ENDPOINT: "low",
     ComponentType.TOOL_SERVICE: "low",
     ComponentType.AGENT_ORCHESTRATOR: "medium",
+    ComponentType.AUTOMATION: "low",
+    ComponentType.SERVERLESS: "low",
+    ComponentType.SCHEDULED_JOB: "low",
 }
 
 

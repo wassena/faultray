@@ -124,6 +124,9 @@ _COMPONENT_TYPE_DATA_RISK: dict[ComponentType, float] = {
     ComponentType.LLM_ENDPOINT: 0.15,
     ComponentType.TOOL_SERVICE: 0.20,
     ComponentType.AGENT_ORCHESTRATOR: 0.35,
+    ComponentType.AUTOMATION: 0.10,
+    ComponentType.SERVERLESS: 0.15,
+    ComponentType.SCHEDULED_JOB: 0.20,
 }
 
 _COMPONENT_TYPE_DOWNTIME_MINUTES: dict[ComponentType, float] = {
@@ -141,6 +144,9 @@ _COMPONENT_TYPE_DOWNTIME_MINUTES: dict[ComponentType, float] = {
     ComponentType.LLM_ENDPOINT: 10.0,
     ComponentType.TOOL_SERVICE: 15.0,
     ComponentType.AGENT_ORCHESTRATOR: 25.0,
+    ComponentType.AUTOMATION: 5.0,
+    ComponentType.SERVERLESS: 3.0,
+    ComponentType.SCHEDULED_JOB: 10.0,
 }
 
 # ---------------------------------------------------------------------------

@@ -54,6 +54,9 @@ COMPUTE_COST_PER_REPLICA: dict[ComponentType, float] = {
     ComponentType.LLM_ENDPOINT: 600.0,
     ComponentType.TOOL_SERVICE: 150.0,
     ComponentType.AGENT_ORCHESTRATOR: 300.0,
+    ComponentType.AUTOMATION: 50.0,
+    ComponentType.SERVERLESS: 20.0,
+    ComponentType.SCHEDULED_JOB: 30.0,
 }
 
 # Storage cost per replica per month (USD)
@@ -72,6 +75,9 @@ STORAGE_COST_PER_REPLICA: dict[ComponentType, float] = {
     ComponentType.LLM_ENDPOINT: 5.0,
     ComponentType.TOOL_SERVICE: 5.0,
     ComponentType.AGENT_ORCHESTRATOR: 10.0,
+    ComponentType.AUTOMATION: 1.0,
+    ComponentType.SERVERLESS: 1.0,
+    ComponentType.SCHEDULED_JOB: 2.0,
 }
 
 # Network cost per replica per month (USD)
@@ -90,6 +96,9 @@ NETWORK_COST_PER_REPLICA: dict[ComponentType, float] = {
     ComponentType.LLM_ENDPOINT: 20.0,
     ComponentType.TOOL_SERVICE: 10.0,
     ComponentType.AGENT_ORCHESTRATOR: 15.0,
+    ComponentType.AUTOMATION: 2.0,
+    ComponentType.SERVERLESS: 5.0,
+    ComponentType.SCHEDULED_JOB: 2.0,
 }
 
 # Licensing cost per replica per month (USD)
@@ -108,6 +117,9 @@ LICENSING_COST_PER_REPLICA: dict[ComponentType, float] = {
     ComponentType.LLM_ENDPOINT: 0.0,
     ComponentType.TOOL_SERVICE: 0.0,
     ComponentType.AGENT_ORCHESTRATOR: 0.0,
+    ComponentType.AUTOMATION: 0.0,
+    ComponentType.SERVERLESS: 0.0,
+    ComponentType.SCHEDULED_JOB: 0.0,
 }
 
 # Spot instance discount rate (fraction of on-demand)

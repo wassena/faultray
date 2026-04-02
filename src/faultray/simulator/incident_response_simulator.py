@@ -352,6 +352,9 @@ _BASE_MTTR_BY_TYPE: dict[str, float] = {
     ComponentType.LLM_ENDPOINT.value: 15.0,
     ComponentType.TOOL_SERVICE.value: 20.0,
     ComponentType.AGENT_ORCHESTRATOR.value: 30.0,
+    ComponentType.AUTOMATION.value: 10.0,
+    ComponentType.SERVERLESS.value: 5.0,
+    ComponentType.SCHEDULED_JOB.value: 15.0,
 }
 
 _COMPONENT_TYPE_CATEGORY: dict[str, IncidentCategory] = {
@@ -369,6 +372,9 @@ _COMPONENT_TYPE_CATEGORY: dict[str, IncidentCategory] = {
     ComponentType.LLM_ENDPOINT.value: IncidentCategory.THIRD_PARTY,
     ComponentType.TOOL_SERVICE.value: IncidentCategory.APPLICATION,
     ComponentType.AGENT_ORCHESTRATOR.value: IncidentCategory.APPLICATION,
+    ComponentType.AUTOMATION.value: IncidentCategory.INFRASTRUCTURE,
+    ComponentType.SERVERLESS.value: IncidentCategory.APPLICATION,
+    ComponentType.SCHEDULED_JOB.value: IncidentCategory.INFRASTRUCTURE,
 }
 
 _FAILURE_MODES_BY_TYPE: dict[str, list[str]] = {
@@ -466,6 +472,25 @@ _FAILURE_MODES_BY_TYPE: dict[str, list[str]] = {
         "resource_exhaustion",
         "config_error",
     ],
+    ComponentType.AUTOMATION.value: [
+        "trigger_failure",
+        "schedule_miss",
+        "execution_timeout",
+        "config_error",
+    ],
+    ComponentType.SERVERLESS.value: [
+        "cold_start",
+        "timeout",
+        "memory_limit",
+        "concurrency_limit",
+        "permission_error",
+    ],
+    ComponentType.SCHEDULED_JOB.value: [
+        "job_missed",
+        "execution_failure",
+        "dependency_timeout",
+        "config_error",
+    ],
 }
 
 _RECOVERY_ACTIONS_BY_TYPE: dict[str, list[tuple[RecoveryActionType, str, float, bool]]] = {
@@ -535,6 +560,20 @@ _RECOVERY_ACTIONS_BY_TYPE: dict[str, list[tuple[RecoveryActionType, str, float, 
         (RecoveryActionType.RESTART_SERVICE, "Restart orchestrator", 5.0, True),
         (RecoveryActionType.PATCH_CONFIG, "Update orchestrator config", 5.0, False),
         (RecoveryActionType.MANUAL_INTERVENTION, "Manual workflow recovery", 20.0, False),
+    ],
+    ComponentType.AUTOMATION.value: [
+        (RecoveryActionType.RESTART_SERVICE, "Restart automation service", 5.0, True),
+        (RecoveryActionType.PATCH_CONFIG, "Fix automation trigger config", 5.0, False),
+    ],
+    ComponentType.SERVERLESS.value: [
+        (RecoveryActionType.RESTART_SERVICE, "Redeploy serverless function", 3.0, True),
+        (RecoveryActionType.ROLLBACK_DEPLOY, "Rollback function version", 5.0, True),
+        (RecoveryActionType.PATCH_CONFIG, "Adjust concurrency/timeout settings", 5.0, False),
+    ],
+    ComponentType.SCHEDULED_JOB.value: [
+        (RecoveryActionType.RESTART_SERVICE, "Re-trigger scheduled job", 5.0, True),
+        (RecoveryActionType.PATCH_CONFIG, "Fix job schedule configuration", 10.0, False),
+        (RecoveryActionType.MANUAL_INTERVENTION, "Manual job execution", 15.0, False),
     ],
 }
 

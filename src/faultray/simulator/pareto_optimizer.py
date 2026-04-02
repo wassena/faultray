@@ -54,6 +54,9 @@ COST_PER_REPLICA: dict[ComponentType, float] = {
     ComponentType.LLM_ENDPOINT: 500.0,
     ComponentType.TOOL_SERVICE: 150.0,
     ComponentType.AGENT_ORCHESTRATOR: 300.0,
+    ComponentType.AUTOMATION: 50.0,
+    ComponentType.SERVERLESS: 20.0,
+    ComponentType.SCHEDULED_JOB: 30.0,
 }
 
 # Monthly cost for enabling features

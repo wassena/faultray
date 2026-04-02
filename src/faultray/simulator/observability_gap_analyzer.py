@@ -387,6 +387,9 @@ _DEFAULT_FAILURE_MODES: dict[ComponentType, list[str]] = {
     ComponentType.LLM_ENDPOINT: ["latency_spike", "rate_limit_hit", "model_degradation", "auth_failure"],
     ComponentType.TOOL_SERVICE: ["tool_timeout", "invalid_input", "resource_exhaustion"],
     ComponentType.AGENT_ORCHESTRATOR: ["workflow_deadlock", "agent_timeout", "state_corruption"],
+    ComponentType.AUTOMATION: ["trigger_failure", "schedule_miss", "execution_timeout"],
+    ComponentType.SERVERLESS: ["cold_start", "timeout", "memory_limit", "concurrency_limit"],
+    ComponentType.SCHEDULED_JOB: ["job_missed", "execution_failure", "dependency_timeout"],
 }
 
 

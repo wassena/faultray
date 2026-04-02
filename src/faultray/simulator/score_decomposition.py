@@ -469,7 +469,7 @@ class ScoreDecomposer:
         # Final score
         # ------------------------------------------------------------------
         final_score = max(0.0, min(100.0, running_score))
-        penalties_total = total_spof_penalty + total_util_penalty + chain_penalty
+        penalties_total = total_spof_penalty + total_failover_penalty + total_util_penalty + chain_penalty
         bonuses_total = 0.0  # In v1, bonuses are implicit (reduced penalties)
 
         grade = _score_to_grade(final_score)

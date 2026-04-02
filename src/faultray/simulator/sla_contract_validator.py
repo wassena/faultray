@@ -35,6 +35,9 @@ _DEFAULT_AVAILABILITY: dict[ComponentType, float] = {
     ComponentType.LLM_ENDPOINT: 0.999,
     ComponentType.TOOL_SERVICE: 0.999,
     ComponentType.AGENT_ORCHESTRATOR: 0.999,
+    ComponentType.AUTOMATION: 0.999,
+    ComponentType.SERVERLESS: 0.999,
+    ComponentType.SCHEDULED_JOB: 0.999,
 }
 
 # Minutes per month (30.44 days)

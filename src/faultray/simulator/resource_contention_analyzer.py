@@ -124,6 +124,9 @@ _COMPONENT_CONTENTION_PRIORITY: dict[ComponentType, int] = {
     ComponentType.LLM_ENDPOINT: 6,
     ComponentType.TOOL_SERVICE: 4,
     ComponentType.AGENT_ORCHESTRATOR: 7,
+    ComponentType.AUTOMATION: 3,
+    ComponentType.SERVERLESS: 4,
+    ComponentType.SCHEDULED_JOB: 2,
 }
 
 # Memory pressure thresholds (percent)

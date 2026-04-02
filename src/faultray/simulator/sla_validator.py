@@ -41,6 +41,9 @@ COMPONENT_AVAILABILITY: dict[ComponentType, float] = {
     ComponentType.LLM_ENDPOINT: 0.999,     # 99.9%
     ComponentType.TOOL_SERVICE: 0.999,     # 99.9%
     ComponentType.AGENT_ORCHESTRATOR: 0.999, # 99.9%
+    ComponentType.AUTOMATION: 0.999,           # 99.9%
+    ComponentType.SERVERLESS: 0.999,           # 99.9%
+    ComponentType.SCHEDULED_JOB: 0.999,        # 99.9%
 }
 
 # Default MTBF/MTTR for Monte Carlo (hours)
