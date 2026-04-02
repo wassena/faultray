@@ -44,6 +44,9 @@ def sla_budget(
     """
     from faultray.simulator.sla_budget_analyzer import SLABudgetAnalyzer
 
+    if json_output:
+        import logging as _logging
+        _logging.getLogger("faultray").setLevel(_logging.ERROR)
     graph = _load_graph_for_analysis(model, model)
     analyzer = SLABudgetAnalyzer()
     report = analyzer.analyze(graph, incidents_per_component=incidents)

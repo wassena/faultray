@@ -54,6 +54,10 @@ def vuln_priority_command(
         console.print(f"[red]File not found: {infra_file}[/]")
         raise typer.Exit(1)
 
+    if json_output:
+        import logging as _logging
+        _logging.getLogger("faultray").setLevel(_logging.ERROR)
+
     try:
         if str(infra_file).endswith((".yaml", ".yml")):
             from faultray.model.loader import load_yaml

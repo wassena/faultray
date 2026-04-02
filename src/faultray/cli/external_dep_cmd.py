@@ -63,6 +63,9 @@ def external_impact(
         faultray external-impact infra.yaml --service stripe
         faultray external-impact infra.yaml --service s3 --json
     """
+    if json_output:
+        import logging as _logging
+        _logging.getLogger("faultray").setLevel(_logging.ERROR)
     # Load graph
     yaml_path = model if str(model).endswith((".yaml", ".yml")) else None
     json_path = model if yaml_path is None else None
