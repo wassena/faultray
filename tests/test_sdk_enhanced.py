@@ -235,13 +235,13 @@ class TestFaultZeroUtilities:
 class TestFaultZeroRepr:
     def test_repr(self, demo_fz: FaultZero):
         r = repr(demo_fz)
-        assert "FaultZero" in r
+        assert "FaultRay" in r
         assert "components=" in r
         assert "score=" in r
 
     def test_str(self, demo_fz: FaultZero):
         s = str(demo_fz)
-        assert "FaultZero" in s
+        assert "FaultRay" in s
         assert "Components:" in s
         assert "Resilience Score:" in s
 

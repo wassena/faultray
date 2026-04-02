@@ -715,3 +715,11 @@ def check_hallucination_risk(graph: "InfraGraph", component_id: str) -> list[tup
     """
     fz = FaultRay(graph=graph)
     return fz.check_hallucination_risk(component_id)
+
+
+# ---------------------------------------------------------------------------
+# Backward-compatibility alias
+# FaultZero was the original brand name (renamed to FaultRay).
+# Tests and user code that imported FaultZero continue to work.
+# ---------------------------------------------------------------------------
+FaultZero = FaultRay

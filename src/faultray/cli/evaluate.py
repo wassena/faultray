@@ -654,17 +654,19 @@ def evaluate(
     num_dependencies = len(graph.all_dependency_edges())
     model_name = resolved_model.name
 
-    console.print(
-        f"\n[cyan]Starting full evaluation of [bold]{model_name}[/bold] "
-        f"({num_components} components, {num_dependencies} dependencies)...[/]\n"
-    )
+    if not json_output:
+        console.print(
+            f"\n[cyan]Starting full evaluation of [bold]{model_name}[/bold] "
+            f"({num_components} components, {num_dependencies} dependencies)...[/]\n"
+        )
 
     # Run evaluation on primary model
-    console.print("[cyan]  [1/5] Running static simulation...[/]")
-    console.print("[cyan]  [2/5] Running dynamic simulation...[/]")
-    console.print(f"[cyan]  [3/5] Running ops simulation ({ops_days} days)...[/]")
-    console.print("[cyan]  [4/5] Running what-if analysis...[/]")
-    console.print("[cyan]  [5/5] Running capacity planning...[/]")
+    if not json_output:
+        console.print("[cyan]  [1/5] Running static simulation...[/]")
+        console.print("[cyan]  [2/5] Running dynamic simulation...[/]")
+        console.print(f"[cyan]  [3/5] Running ops simulation ({ops_days} days)...[/]")
+        console.print("[cyan]  [4/5] Running what-if analysis...[/]")
+        console.print("[cyan]  [5/5] Running capacity planning...[/]")
 
     evaluation_data = _run_evaluation(graph, model_name, ops_days, max_scenarios)
 
@@ -680,15 +682,16 @@ def evaluate(
         num_comp_b = len(graph_b.components)
         num_dep_b = len(graph_b.all_dependency_edges())
 
-        console.print(
-            f"\n[cyan]Starting full evaluation of [bold]{model_name_b}[/bold] "
-            f"({num_comp_b} components, {num_dep_b} dependencies)...[/]\n"
-        )
-        console.print("[cyan]  [1/5] Running static simulation...[/]")
-        console.print("[cyan]  [2/5] Running dynamic simulation...[/]")
-        console.print(f"[cyan]  [3/5] Running ops simulation ({ops_days} days)...[/]")
-        console.print("[cyan]  [4/5] Running what-if analysis...[/]")
-        console.print("[cyan]  [5/5] Running capacity planning...[/]")
+        if not json_output:
+            console.print(
+                f"\n[cyan]Starting full evaluation of [bold]{model_name_b}[/bold] "
+                f"({num_comp_b} components, {num_dep_b} dependencies)...[/]\n"
+            )
+            console.print("[cyan]  [1/5] Running static simulation...[/]")
+            console.print("[cyan]  [2/5] Running dynamic simulation...[/]")
+            console.print(f"[cyan]  [3/5] Running ops simulation ({ops_days} days)...[/]")
+            console.print("[cyan]  [4/5] Running what-if analysis...[/]")
+            console.print("[cyan]  [5/5] Running capacity planning...[/]")
 
         evaluation_data_b = _run_evaluation(graph_b, model_name_b, ops_days, max_scenarios)
 

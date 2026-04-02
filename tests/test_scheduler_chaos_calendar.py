@@ -379,7 +379,7 @@ class TestICalExport:
         assert "BEGIN:VCALENDAR" in ical
         assert "END:VCALENDAR" in ical
         assert "VERSION:2.0" in ical
-        assert "PRODID:-//FaultZero//ChaosCalendar//EN" in ical
+        assert "PRODID:-//FaultRay//ChaosCalendar//EN" in ical
 
     def test_ical_contains_event(self, cal):
         cal.schedule(_make_experiment(name="DB Failover"))

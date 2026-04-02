@@ -68,6 +68,8 @@ def __getattr__(name: str):
         "generate_agent_scenarios": ("faultray.simulator.agent_scenarios", "generate_agent_scenarios"),
         # SDK entry point
         "FaultRay": ("faultray.sdk", "FaultRay"),
+        # Backward-compatibility alias (old brand name)
+        "FaultZero": ("faultray.sdk", "FaultZero"),
         # SDK agent convenience functions
         "assess_agents": ("faultray.sdk", "assess_agents"),
         "generate_monitoring_plan": ("faultray.sdk", "generate_monitoring_plan"),
@@ -96,6 +98,6 @@ __all__ = [
     "CIGateGenerator", "CIGateConfig", "SARIFExporter",
     "AgentConfig", "LLMEndpointConfig", "ToolServiceConfig", "AgentOrchestratorConfig",
     "AdoptionEngine", "AgentMonitorEngine", "generate_agent_scenarios",
-    "FaultRay",
+    "FaultRay", "FaultZero",
     "assess_agents", "generate_monitoring_plan", "check_hallucination_risk",
 ]
