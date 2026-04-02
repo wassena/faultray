@@ -1,0 +1,79 @@
+# Shadow IT / Orphaned System sample infrastructure
+# Demonstrates FaultRay's shadow-it detection command.
+#
+# Usage:
+#   faultray shadow-it examples/shadow-it-sample.yaml
+#   faultray shadow-it examples/shadow-it-sample.yaml --json
+
+components:
+  - id: web-app
+    name: "Main Web App"
+    type: app_server
+    owner: "tanaka@example.com"
+    created_by: "tanaka@example.com"
+    last_modified: "2026-03-15"
+    documentation_url: "https://wiki.example.com/web-app"
+    source_url: "https://github.com/example/web-app"
+    lifecycle_status: "active"
+    replicas: 2
+
+  - id: gas-report
+    name: "月次レポート自動生成（GAS）"
+    type: automation
+    owner: ""                         # no owner — orphaned
+    created_by: "yamada@example.com"  # creator may have left
+    last_modified: "2024-06-01"       # >1 year ago — stale
+    last_executed: "2026-04-01"       # still running
+    documentation_url: ""
+    lifecycle_status: "active"
+
+  - id: cron-backup
+    name: "DBバックアップ（cron）"
+    type: scheduled_job
+    owner: ""
+    created_by: ""                    # creator unknown
+    last_modified: ""                 # modification date unknown
+    documentation_url: ""
+    lifecycle_status: "unknown"
+
+  - id: lambda-resize
+    name: "画像リサイズ Lambda"
+    type: serverless
+    owner: "suzuki@example.com"
+    created_by: "suzuki@example.com"
+    last_modified: "2025-01-10"       # >1 year ago — stale
+    documentation_url: ""
+    lifecycle_status: "active"
+
+  - id: zapier-slack
+    name: "Zapier→Slack通知"
+    type: automation
+    owner: ""
+    created_by: "sato@example.com"
+    last_modified: "2024-01-20"
+    documentation_url: ""
+    lifecycle_status: "unknown"
+
+  - id: main-db
+    name: "Main PostgreSQL DB"
+    type: database
+    owner: "infra-team@example.com"
+    created_by: "infra-team@example.com"
+    last_modified: "2026-03-20"
+    documentation_url: "https://wiki.example.com/db"
+    lifecycle_status: "active"
+    replicas: 2
+
+dependencies:
+  - source: web-app
+    target: gas-report
+    type: async
+  - source: web-app
+    target: lambda-resize
+    type: requires
+  - source: cron-backup
+    target: main-db
+    type: async
+  - source: web-app
+    target: main-db
+    type: requires

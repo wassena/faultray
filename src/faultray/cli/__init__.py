@@ -116,6 +116,7 @@ _KNOWN_MODULES: list[str] = [
     "coupon_cmd",
     "slo_impact_cmd",
     "autopilot_cmd",
+    "shadow_it_cmd",
 ]
 
 
@@ -258,6 +259,8 @@ _HELP_PANELS: dict[str, str] = {
     "overmind": "🔧 Utilities",
     "resilience-hub": "🔧 Utilities",
     "optimize": "🔧 Utilities",
+    # --- Shadow IT ---
+    "shadow-it": "🔍 Discovery & Import",
 }
 
 

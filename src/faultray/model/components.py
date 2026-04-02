@@ -26,6 +26,9 @@ class ComponentType(str, Enum):
     LLM_ENDPOINT = "llm_endpoint"
     TOOL_SERVICE = "tool_service"
     AGENT_ORCHESTRATOR = "agent_orchestrator"
+    AUTOMATION = "automation"          # GAS, cron, Zapier etc.
+    SERVERLESS = "serverless"          # Lambda, Cloud Functions etc.
+    SCHEDULED_JOB = "scheduled_job"    # Periodic batch jobs
 
 
 class ResourceMetrics(BaseModel):
@@ -273,6 +276,15 @@ class Component(BaseModel):
     team: OperationalTeamConfig = Field(default_factory=OperationalTeamConfig)
     parameters: dict[str, float | int | str] = Field(default_factory=dict)
     tags: list[str] = Field(default_factory=list)
+
+    # Ownership & lifecycle tracking (shadow IT detection)
+    owner: str = ""                  # Current maintainer
+    created_by: str = ""             # Original author
+    last_modified: str = ""          # Last modification date (ISO 8601)
+    last_executed: str = ""          # Last execution date (ISO 8601)
+    documentation_url: str = ""      # Link to documentation
+    source_url: str = ""             # Link to source code (GitHub etc.)
+    lifecycle_status: str = "active" # active / deprecated / orphaned / unknown
 
     @field_validator('replicas')
     @classmethod

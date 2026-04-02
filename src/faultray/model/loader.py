@@ -190,6 +190,14 @@ def load_yaml(path: Path | str) -> InfraGraph:
             team=team_config,
             parameters=entry.get("parameters", {}),
             tags=entry.get("tags", []),
+            # Ownership & lifecycle tracking
+            owner=str(entry.get("owner", "")),
+            created_by=str(entry.get("created_by", "")),
+            last_modified=str(entry.get("last_modified", "")),
+            last_executed=str(entry.get("last_executed", "")),
+            documentation_url=str(entry.get("documentation_url", "")),
+            source_url=str(entry.get("source_url", "")),
+            lifecycle_status=str(entry.get("lifecycle_status", "active")),
         )
 
         # Flatten agent_config / llm_config / tool_config / orchestrator_config

@@ -443,6 +443,8 @@ class TestComponentType:
             "load_balancer", "web_server", "app_server", "database",
             "cache", "queue", "storage", "dns", "external_api", "custom",
             "ai_agent", "llm_endpoint", "tool_service", "agent_orchestrator",
+            # Shadow IT / unmanaged system types
+            "automation", "serverless", "scheduled_job",
         }
         actual = {ct.value for ct in ComponentType}
         assert actual == expected
