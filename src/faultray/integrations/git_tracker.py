@@ -17,11 +17,15 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
+
+# Regex for valid git commit hashes (full 40-char SHA1 or abbreviated 7-40 chars)
+_GIT_HASH_RE = re.compile(r"^[0-9a-f]{7,40}$")
 
 
 @dataclass
@@ -219,6 +223,18 @@ class GitArchitectureTracker:
 
     # ---- Git Helpers ----
 
+    @staticmethod
+    def _validate_commit_hash(commit_hash: str) -> None:
+        """Validate that *commit_hash* is a safe git SHA1 hash.
+
+        Raises:
+            ValueError: If the value does not look like a git commit hash.
+        """
+        if not _GIT_HASH_RE.match(commit_hash):
+            raise ValueError(
+                f"Invalid commit hash '{commit_hash}': must be 7-40 hexadecimal characters."
+            )
+
     def _git_cmd(self, args: list[str]) -> subprocess.CompletedProcess:
         """Run a git command in the repository directory."""
         return subprocess.run(
@@ -248,6 +264,7 @@ class GitArchitectureTracker:
 
     def _get_commit_info(self, commit_hash: str) -> dict[str, str]:
         """Get metadata for a specific commit."""
+        self._validate_commit_hash(commit_hash)
         result = self._git_cmd([
             "log",
             "-1",
@@ -266,6 +283,7 @@ class GitArchitectureTracker:
 
     def _get_file_at_commit(self, commit_hash: str) -> str | None:
         """Get the content of the model file at a specific commit."""
+        self._validate_commit_hash(commit_hash)
         result = self._git_cmd([
             "show",
             f"{commit_hash}:{self.model_file}",

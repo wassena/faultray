@@ -155,7 +155,7 @@ def _rack_of(comp: Component) -> str:
     tag_rack = [t for t in comp.tags if t.startswith("rack:")]
     if tag_rack:
         return tag_rack[0].split(":", 1)[1]
-    return f"rack-{hashlib.md5(comp.id.encode()).hexdigest()[:4]}"
+    return f"rack-{hashlib.md5(comp.id.encode(), usedforsecurity=False).hexdigest()[:4]}"
 
 
 def _region_of(comp: Component) -> str:

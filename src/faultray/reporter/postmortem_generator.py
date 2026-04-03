@@ -440,7 +440,7 @@ class PostMortemGenerator:
     @staticmethod
     def _generate_incident_id(scenario_id: str) -> str:
         """Generate a stable incident ID from scenario ID."""
-        h = hashlib.md5(scenario_id.encode()).hexdigest()[:8]
+        h = hashlib.md5(scenario_id.encode(), usedforsecurity=False).hexdigest()[:8]
         return f"INC-{h.upper()}"
 
     @staticmethod

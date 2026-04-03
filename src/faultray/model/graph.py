@@ -14,6 +14,9 @@ import networkx as nx
 from .components import SCHEMA_VERSION, Component, ComponentType, Dependency
 
 
+_MAX_COMPONENTS = 10_000  # DoS guard — prevent unbounded memory growth
+
+
 class InfraGraph:
     """Directed graph of infrastructure components and their dependencies."""
 
@@ -26,6 +29,11 @@ class InfraGraph:
         return self._components
 
     def add_component(self, component: Component) -> None:
+        if len(self._components) >= _MAX_COMPONENTS:
+            raise ValueError(
+                f"Component limit reached ({_MAX_COMPONENTS}). "
+                "Cannot add more components to this graph."
+            )
         self._components[component.id] = component
         self._graph.add_node(component.id, component=component)
 

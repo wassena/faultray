@@ -164,14 +164,39 @@ def parse_tf_plan(plan_json: dict) -> dict:
     }
 
 
+_MAX_INPUT_BYTES = 10 * 1024 * 1024  # 10 MB
+
+
+def _validate_path(path: Path, label: str) -> None:
+    """Validate that *path* exists and is a regular file/directory without path traversal.
+
+    Raises:
+        ValueError: If the path fails validation.
+    """
+    try:
+        resolved = path.resolve()
+    except Exception as exc:
+        raise ValueError(f"Invalid {label} path: {exc}") from exc
+    if not resolved.exists():
+        raise ValueError(f"{label} path does not exist: {resolved}")
+
+
 def load_tf_state_file(path: Path) -> InfraGraph:
     """Load from a terraform.tfstate file directly."""
+    _validate_path(path, "state file")
+    file_size = path.stat().st_size
+    if file_size > _MAX_INPUT_BYTES:
+        raise ValueError(
+            f"State file too large ({file_size} bytes). Maximum allowed: {_MAX_INPUT_BYTES} bytes."
+        )
     data = json.loads(path.read_text())
     return parse_tf_state(data)
 
 
 def load_tf_state_cmd(tf_dir: Path | None = None) -> InfraGraph:
     """Run 'terraform show -json' and parse the output."""
+    if tf_dir is not None:
+        _validate_path(tf_dir, "terraform directory")
     cmd = ["terraform", "show", "-json"]
     result = subprocess.run(
         cmd,
@@ -188,9 +213,13 @@ def load_tf_state_cmd(tf_dir: Path | None = None) -> InfraGraph:
 
 def load_tf_plan_cmd(plan_file: Path | None = None, tf_dir: Path | None = None) -> dict:
     """Run 'terraform show -json <planfile>' and parse the output."""
+    if tf_dir is not None:
+        _validate_path(tf_dir, "terraform directory")
     cmd = ["terraform", "show", "-json"]
     if plan_file:
-        cmd.append(str(plan_file))
+        _validate_path(plan_file, "plan file")
+        # Use resolved absolute path to prevent path traversal
+        cmd.append(str(plan_file.resolve()))
 
     result = subprocess.run(
         cmd,

@@ -55,6 +55,9 @@ def _check_schema_version(raw: dict) -> None:
         raw["schema_version"] = SCHEMA_VERSION
 
 
+_MAX_YAML_BYTES = 10 * 1024 * 1024  # 10 MB — guard against memory-bomb inputs
+
+
 def load_yaml(path: Path | str) -> InfraGraph:
     """Load an infrastructure definition from a YAML file.
 
@@ -76,6 +79,13 @@ def load_yaml(path: Path | str) -> InfraGraph:
         path = Path(path)
     if not path.exists():
         raise FileNotFoundError(f"YAML file not found: {path}")
+
+    file_size = path.stat().st_size
+    if file_size > _MAX_YAML_BYTES:
+        raise ValidationError(
+            f"YAML file too large ({file_size:,} bytes). "
+            f"Maximum allowed: {_MAX_YAML_BYTES:,} bytes."
+        )
 
     raw = yaml.safe_load(path.read_text(encoding="utf-8"))
     if not isinstance(raw, dict):

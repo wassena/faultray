@@ -484,7 +484,7 @@ class SyntheticMonitorEngine:
         base += net.tls_handshake_ms
 
         # Deterministic jitter from component id so tests are reproducible
-        seed = int(hashlib.md5(component.id.encode()).hexdigest()[:8], 16)
+        seed = int(hashlib.md5(component.id.encode(), usedforsecurity=False).hexdigest()[:8], 16)
         jitter = (seed % 20) - 10  # -10..+9 ms
         base += jitter + net.jitter_ms
 
