@@ -484,6 +484,7 @@ class MetricsDB:
         return {
             "metric_points": metrics_count,
             "agents": agents_count,
+            "total_agents": agents_count,
             "alerts": alerts_count,
             "traces": traces_count,
         }

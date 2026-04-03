@@ -187,7 +187,7 @@ class APIHealthCheck:
         seconds = int(uptime_seconds % 60)
 
         return {
-            "status": "healthy",
+            "status": "ok",
             "version": self.version,
             "uptime": f"{hours}h {minutes}m {seconds}s",
             "uptime_seconds": round(uptime_seconds, 1),

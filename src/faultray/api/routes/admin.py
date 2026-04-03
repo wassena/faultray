@@ -522,7 +522,7 @@ async def chat_api(request: Request):
     from faultray.api.chat_engine import ChatEngine
 
     body = await request.json()
-    question = body.get("question", "").strip()
+    question = (body.get("question") or body.get("message") or "").strip()
     if not question:
         return JSONResponse(
             {"error": "No question provided"},
@@ -535,6 +535,7 @@ async def chat_api(request: Request):
 
     return JSONResponse({
         "text": response.text,
+        "response": response.text,
         "intent": response.intent.value,
         "data": response.data,
         "suggestions": response.suggestions,

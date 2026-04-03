@@ -355,6 +355,11 @@ from faultray.apm.collector import apm_router
 
 app.include_router(apm_router)
 
+# Meta API routes (action-based dispatchers for E2E compatibility)
+from faultray.api.routes.meta import router as meta_router
+
+app.include_router(meta_router)
+
 
 # ---------------------------------------------------------------------------
 # Stripe Billing routes (inline because they use module-level _stripe_mgr)
