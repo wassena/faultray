@@ -74,13 +74,11 @@ async def api_simulate(request: Request, user=Depends(_require_permission("run_s
         body = {}
 
     graph = get_graph()
+    sample = body.get("sample") if isinstance(body, dict) else None
     if not graph.components:
-        sample = body.get("sample") if isinstance(body, dict) else None
         if sample:
-            # Auto-load demo graph for sample-based simulation
+            # Use demo graph for sample-based simulation (not persisted globally)
             graph = build_demo_graph()
-            from faultray.api.routes._shared import set_graph
-            set_graph(graph)
         else:
             return JSONResponse({"error": "No infrastructure loaded. Visit /demo first."}, status_code=400)
 
