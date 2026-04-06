@@ -19,7 +19,7 @@ jobs:
       - name: ZAP Baseline Scan
         uses: zaproxy/action-baseline@v0.15.0
         with:
-          target: "https://mattyopon.github.io/faultray/"
+          target: "https://faultray.com"
           fail_action: false
           artifact_name: zap-report
 
