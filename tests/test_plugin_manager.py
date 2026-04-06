@@ -664,3 +664,79 @@ except BaseException:
         ns: dict = {}
         exec(code, {"__builtins__": _PLUGIN_SAFE_BUILTINS}, ns)
         assert ns.get("caught") is True
+
+    # ------------------------------------------------------------------
+    # AST-rewriting sandbox tests (SEC-01 hardening)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _exec_in_sandbox(source: str) -> dict:
+        """Compile via _sandbox_compile and exec in a realistic sandbox."""
+        import types
+
+        from faultray.plugins.plugin_manager import (
+            _PLUGIN_SAFE_BUILTINS,
+            _safe_getattr,
+            _sandbox_compile,
+        )
+
+        module = types.ModuleType("_fz_plugin_test")
+        module.__dict__["__builtins__"] = _PLUGIN_SAFE_BUILTINS
+        module.__dict__["_safe_getattr"] = _safe_getattr
+        code = _sandbox_compile(source, "<sandbox-test>")
+        exec(code, module.__dict__)  # noqa: S102
+        return module.__dict__
+
+    def test_ast_rewrite_blocks_class_bases_subclasses(self):
+        """(1).__class__.__bases__[0].__subclasses__() must be blocked."""
+        with pytest.raises(AttributeError, match="__class__"):
+            self._exec_in_sandbox(
+                "result = (1).__class__.__bases__[0].__subclasses__()"
+            )
+
+    def test_ast_rewrite_blocks_mro_escape(self):
+        """str.__mro__[-1].__subclasses__() must be blocked."""
+        with pytest.raises(AttributeError, match="__mro__"):
+            self._exec_in_sandbox(
+                'result = str.__mro__[-1].__subclasses__()'
+            )
+
+    def test_ast_rewrite_blocks_globals_via_dict(self):
+        """cls.__dict__[x].__globals__ must be blocked via AST rewrite."""
+        with pytest.raises(AttributeError, match="__class__"):
+            self._exec_in_sandbox(
+                "(1).__class__.__bases__[0].__subclasses__()"
+            )
+
+    def test_ast_rewrite_allows_normal_attr_access(self):
+        """Normal attribute access (list.append, str.upper) must work."""
+        ns = self._exec_in_sandbox(
+            'x = [1, 2, 3]\nx.append(4)\nlength = len(x)\nmsg = "hello"\nupper = msg.upper()'
+        )
+        assert ns["length"] == 4
+        assert ns["upper"] == "HELLO"
+
+    def test_ast_rewrite_allows_class_definition(self):
+        """Plugin code should still be able to define and use classes."""
+        ns = self._exec_in_sandbox(
+            'class MyPlugin:\n    name = "test"\n    version = "1.0"\n    def execute(self):\n        return 42\n\ninstance = MyPlugin()\nresult = instance.execute()'
+        )
+        assert ns["result"] == 42
+
+    def test_ast_rewrite_allows_exception_handling(self):
+        """try/except must work in the sandbox."""
+        ns = self._exec_in_sandbox(
+            'caught = False\ntry:\n    raise ValueError("test")\nexcept ValueError:\n    caught = True'
+        )
+        assert ns["caught"] is True
+
+    def test_ast_rewrite_blocks_full_exploit_chain(self):
+        """Full exploit: literal -> object -> __subclasses__ -> __globals__ -> os."""
+        with pytest.raises(AttributeError):
+            self._exec_in_sandbox(
+                'subs = (1).__class__.__bases__[0].__subclasses__()\n'
+                'for cls in subs:\n'
+                '    if "_wrap_close" in cls.__name__:\n'
+                '        g = cls.__dict__["close"].__globals__\n'
+                '        break'
+            )

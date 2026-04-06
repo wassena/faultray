@@ -6,9 +6,11 @@ tags: chaosengineering, devops, python, terraform
 cover_image:
 ---
 
+![FaultRay Dashboard](https://raw.githubusercontent.com/mattyopon/faultray/main/docs/screenshots/dashboard.png)
+
 It is 2am. Your pager fires. A `terraform apply` that "just changed a timeout" has taken down the payment service, the order queue, and half the API layer. The plan output looked clean. The PR had two approvals. And yet here you are, staring at a cascade failure that nobody predicted.
 
-This is the scenario that led us to build FaultRay.
+This is the scenario that led me to build FaultRay.
 
 ## The problem with breaking things to test things
 
@@ -124,11 +126,11 @@ This captures a failure mode that traditional chaos tools cannot model: your LLM
 
 ## Validation: 18 real-world incidents
 
-We backtested FaultRay against 18 documented public cloud incidents (AWS, GCP, Azure outages with known root causes and blast radii). The engine was given the pre-incident topology, told which component failed, and asked to predict which downstream services would be affected.
+I backtested FaultRay against 18 documented public cloud incidents (AWS, GCP, Azure outages with known root causes and blast radii). The engine was given the pre-incident topology, told which component failed, and asked to predict which downstream services would be affected.
 
 Results: **F1 = 1.000** across all 18 incidents.
 
-We should be honest about what this means and what it does not. The topologies were constructed post-hoc from incident reports. We knew the architecture because the post-mortems described it. This validates that the cascade engine correctly propagates failures through a known graph. It does not validate topology discovery from real Terraform state, which is a harder and less controlled problem. The backtest methodology and all 18 incidents are documented in the paper.
+I should be honest about what this means and what it does not. The topologies were constructed post-hoc from incident reports. I knew the architecture because the post-mortems described it. This validates that the cascade engine correctly propagates failures through a known graph. It does not validate topology discovery from real Terraform state, which is a harder and less controlled problem. The backtest methodology and all 18 incidents are documented in the paper.
 
 ## Try it
 
@@ -169,9 +171,28 @@ faultray simulate --html report.html
 
 Or import directly from Terraform state with `faultray tf-import`.
 
+## The numbers
+
+This is a solo project, but I did not cut corners on quality:
+
+- **32,000+ tests**, all passing
+- CI runs lint, type check, unit, E2E, security, performance, and mutation testing on every push
+- USPTO provisional patent filed (US 64/010,200)
+- Peer-reviewed paper on Zenodo (DOI: 10.5281/zenodo.19139911)
+
+## Try it
+
+**Live demo (browser):** [faultray.com/demo](https://faultray.com/demo)
+
+```bash
+pip install faultray
+faultray demo
+```
+
 ## Links
 
 - **GitHub:** [github.com/mattyopon/faultray](https://github.com/mattyopon/faultray)
+- **Live Demo:** [faultray.com/demo](https://faultray.com/demo)
 - **Paper (DOI):** [doi.org/10.5281/zenodo.19139911](https://doi.org/10.5281/zenodo.19139911)
 - **PyPI:** [pypi.org/project/faultray](https://pypi.org/project/faultray/)
 

@@ -105,6 +105,63 @@ def _safe_getattr(obj: Any, name: str, *args: Any) -> Any:
     return getattr(obj, name, *args)
 
 
+# ---------------------------------------------------------------------------
+# AST rewriting: redirect all attribute access through _safe_getattr
+# ---------------------------------------------------------------------------
+# Python resolves `obj.attr` at the C level via type.__getattribute__,
+# completely bypassing our _safe_getattr wrapper.  This means:
+#
+#   (1).__class__.__bases__[0].__subclasses__()
+#
+# reaches object.__subclasses__() unchecked.  The ONLY way to intercept
+# every attribute access is to rewrite the AST before compilation so that
+# `obj.attr` becomes `_safe_getattr(obj, "attr")`.
+
+import ast as _ast  # noqa: E402 — local import to avoid unused-import removal by formatter
+
+
+class _SafeAttrTransformer(_ast.NodeTransformer):
+    """Rewrite ``obj.attr`` → ``_safe_getattr(obj, "attr")`` in plugin code.
+
+    This ensures dunder attributes like ``__class__``, ``__bases__``,
+    ``__subclasses__``, ``__globals__`` are always checked, even when
+    accessed via dot notation.
+    """
+
+    _GUARD_NAME = "_safe_getattr"
+
+    def visit_Attribute(self, node: _ast.Attribute) -> _ast.AST:  # noqa: N802
+        self.generic_visit(node)  # transform children first
+
+        # Only rewrite Load context (reads).  Store/Del must remain as-is.
+        if not isinstance(node.ctx, _ast.Load):
+            return node
+
+        call = _ast.Call(
+            func=_ast.Name(id=self._GUARD_NAME, ctx=_ast.Load()),
+            args=[
+                node.value,
+                _ast.Constant(value=node.attr),
+            ],
+            keywords=[],
+        )
+        return _ast.copy_location(call, node)
+
+
+def _sandbox_compile(source: str, filename: str) -> Any:
+    """Parse, AST-rewrite, and compile plugin source code.
+
+    Every ``obj.attr`` expression is rewritten to
+    ``_safe_getattr(obj, "attr")`` so that blocked dunder attributes
+    (``__class__``, ``__bases__``, ``__subclasses__``, ``__globals__``, etc.)
+    cannot be accessed even via dot notation.
+    """
+    tree = _ast.parse(source, filename)
+    tree = _SafeAttrTransformer().visit(tree)
+    _ast.fix_missing_locations(tree)
+    return compile(tree, filename, "exec")
+
+
 def _make_safe_exception_proxy(real_exc: type, *extra_bases: type) -> type:
     """Return a proxy of *real_exc* whose ``__subclasses__`` is disabled.
 
@@ -590,7 +647,7 @@ class PluginManager:
         )
 
         source = py_file.read_text(encoding="utf-8")
-        code = compile(source, str(py_file), "exec")
+        code = _sandbox_compile(source, str(py_file))
 
         module = types.ModuleType(f"_fz_plugin_{py_file.stem}")
         module.__file__ = str(py_file)
@@ -603,6 +660,10 @@ class PluginManager:
         # its definitions into the *globals* dict that is passed in, and
         # module.__dict__ IS that dict).
         module.__dict__["__builtins__"] = _PLUGIN_SAFE_BUILTINS  # type: ignore[assignment]
+        # Inject _safe_getattr into the module globals so that the
+        # AST-rewritten attribute accesses (obj.attr → _safe_getattr(obj, "attr"))
+        # can resolve the guard function at runtime.
+        module.__dict__["_safe_getattr"] = _safe_getattr
         exec(code, module.__dict__)  # noqa: S102
         self._plugin_modules[plugin_name] = module
 
