@@ -449,11 +449,21 @@ class TestRateLimiting:
         assert limiter.is_allowed("b") is True
 
     def test_rate_limit_middleware_returns_429(self, client):
-        """Make many requests to trigger the 429 from the real middleware."""
-        # Drain the rate limiter for testclient's IP
-        for _ in range(60):
-            _rate_limiter.is_allowed("testclient")
-        resp = client.get("/api/graph-data")
+        """Make many requests to trigger the 429 from the real middleware.
+
+        Uses a fresh RateLimiter with a low limit to avoid timing-dependent
+        flakiness. The original test drained the global limiter's budget
+        via direct is_allowed() calls, but in CI the window could reset
+        between drain and the actual HTTP request, causing false PASS/FAIL.
+        """
+        from unittest.mock import patch
+
+        # Create a limiter that will reject after 1 request
+        strict_limiter = RateLimiter(max_requests=1, window_seconds=60)
+        strict_limiter.is_allowed("testclient")  # consume the single allowed request
+
+        with patch("faultray.api.server._rate_limiter", strict_limiter):
+            resp = client.get("/api/graph-data")
         assert resp.status_code == 429
         data = resp.json()
         assert data["error"]["code"] == 429
