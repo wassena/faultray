@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [11.2.0] — 2026-04-11
+
+### Changed
+- **License**: Relicensed from BSL 1.1 to Apache License 2.0
+- **CORS**: Replaced wildcard `allow_methods`/`allow_headers` with explicit lists (MDN spec compliance)
+- **Session**: Added production guard — `RuntimeError` if `FAULTRAY_SESSION_SECRET` unset when `FAULTRAY_ENV=production`
+- **Security**: Migrated `xml.etree.ElementTree` to `defusedxml` (Bandit B314)
+- **Refactor**: Reduced cyclomatic complexity in `architecture_advisor.py` (C901 violations 4→0)
+- **Tests**: Stabilized flaky `test_rate_limit_middleware_returns_429`
+
+### Notes
+- v11.1.0 (BSL 1.1) is yanked on PyPI. Please use v11.2.0 or later.
+- This release includes all security fixes from v11.1.0 plus the Apache 2.0 relicense.
+
 ## [11.0.0] — 2026-03-17
 
 ### Added — AI Agent Resilience Simulation
