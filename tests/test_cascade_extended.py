@@ -946,14 +946,17 @@ def test_cascade_async_dependency():
     assert "async" in app_effects[0].reason.lower()
 
 
-def test_cascade_required_dep_with_replicas():
-    """Required dependency with replicas > 1 should DEGRADE, not DOWN."""
+def test_cascade_required_dep_upstream_down_multi_replica_cascades_degraded():
+    """Rule 3: when the failed upstream has replicas > 1, the fault scenario
+    represents ONE replica failing; remaining replicas absorb load at reduced
+    capacity, so the dependent is DEGRADED (not DOWN).
+    Contrast with Rule 2 (replicas=1 upstream -> dependent is DOWN)."""
     graph = InfraGraph()
     graph.add_component(Component(
-        id="db", name="DB", type=ComponentType.DATABASE, replicas=1,
+        id="db", name="DB", type=ComponentType.DATABASE, replicas=3,
     ))
     graph.add_component(Component(
-        id="app", name="App", type=ComponentType.APP_SERVER, replicas=3,
+        id="app", name="App", type=ComponentType.APP_SERVER, replicas=1,
     ))
     graph.add_dependency(Dependency(
         source_id="app", target_id="db", dependency_type="requires",
@@ -1229,7 +1232,7 @@ def test_propagate_missing_failed_component():
         failed_id="nonexistent",
         failed_health=HealthStatus.DOWN,
         chain=chain,
-        visited=set(),
+        worst_health={},
         depth=0,
         elapsed_seconds=0,
     )
@@ -1242,8 +1245,11 @@ def test_propagate_missing_failed_component():
 # ---------------------------------------------------------------------------
 
 
-def test_propagate_visited_dependent_skipped():
-    """Already-visited dependents should be skipped in propagation."""
+def test_propagate_already_at_worst_state_skipped():
+    """When a dependent is already recorded at the WORST possible state
+    (DOWN), a subsequent equal-or-milder cascade path must not duplicate
+    or downgrade the effect — the worst_health map is the monotonicity
+    guard that replaced the old global visited set."""
     graph = InfraGraph()
     graph.add_component(Component(
         id="a", name="A", type=ComponentType.APP_SERVER, replicas=1,
@@ -1258,16 +1264,16 @@ def test_propagate_visited_dependent_skipped():
     engine = CascadeEngine(graph)
     chain = CascadeChain(trigger="test", total_components=2)
 
-    # Pre-visit "b" so it gets skipped during propagation from "a"
+    # Pre-record "b" as already DOWN — a required-dep cascade from "a"
+    # would at most reach DOWN, so it must not re-emit an effect.
     engine._propagate(
         failed_id="a",
         failed_health=HealthStatus.DOWN,
         chain=chain,
-        visited={"b"},  # "b" already visited
+        worst_health={"b": HealthStatus.DOWN},
         depth=0,
         elapsed_seconds=0,
     )
-    # "b" should not appear in effects since it was already visited
     b_effects = [e for e in chain.effects if e.component_id == "b"]
     assert len(b_effects) == 0
 
@@ -1296,7 +1302,7 @@ def test_propagate_no_edge_data():
         failed_id="a",
         failed_health=HealthStatus.DOWN,
         chain=chain,
-        visited=set(),
+        worst_health={},
         depth=0,
         elapsed_seconds=0,
     )

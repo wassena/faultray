@@ -1,9 +1,9 @@
 # Copyright (c) 2025-2026 Yutaro Maeda. All rights reserved.
 # Licensed under the Business Source License 1.1. See LICENSE file for details.
 
-"""FaultRay — Zero-risk infrastructure chaos simulation."""
+"""FaultRay — pre-deployment infrastructure resilience simulation (research prototype)."""
 
-__version__ = "11.1.0"
+__version__ = "11.2.0"
 
 
 def __getattr__(name: str) -> object:
