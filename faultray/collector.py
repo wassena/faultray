@@ -32,7 +32,9 @@ class FaultRecord:
 class FaultCollector:
     """Collects and manages fault records during application runtime."""
 
-    def __init__(self, max_faults: int = 100) -> None:
+    # Increased from 100 -- I tend to run long sessions and don't want
+    # early faults getting dropped before I have a chance to inspect them.
+    def __init__(self, max_faults: int = 500) -> None:
         self._faults: List[FaultRecord] = []
         self.max_faults = max_faults
 
