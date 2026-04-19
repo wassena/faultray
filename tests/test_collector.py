@@ -95,3 +95,15 @@ def test_to_dict():
     assert "traceback" in d
     assert "timestamp" in d
     assert isinstance(d["context"], dict)
+
+
+def test_to_dict_timestamp_is_string():
+    # Handy when serializing to JSON - timestamp should be a string, not a datetime object
+    collector = FaultCollector()
+    try:
+        raise ValueError("check timestamp format")
+    except ValueError as exc:
+        record = collector.capture(exc)
+
+    d = record.to_dict()
+    assert isinstance(d["timestamp"], str), "timestamp in to_dict() should be an ISO-format string"
