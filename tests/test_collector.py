@@ -48,6 +48,7 @@ def test_capture_no_active_exception_raises():
 
 
 def test_max_faults_eviction():
+    # Using max_faults=3 to verify oldest entries are dropped correctly
     collector = FaultCollector(max_faults=3)
     for i in range(5):
         try:
@@ -57,6 +58,9 @@ def test_max_faults_eviction():
 
     assert len(collector) == 3
     messages = [r.exc_message for r in collector.all()]
+    # oldest two (error 0, error 1) should have been evicted
+    assert "error 0" not in messages
+    assert "error 1" not in messages
     assert "error 2" in messages
     assert "error 4" in messages
 
