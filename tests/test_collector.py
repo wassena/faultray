@@ -65,6 +65,12 @@ def test_max_faults_eviction():
     assert "error 4" in messages
 
 
+def test_max_faults_default_is_100():
+    # Verify the default max_faults cap so we don't silently change it later
+    collector = FaultCollector()
+    assert collector.max_faults == 100
+
+
 def test_clear():
     collector = FaultCollector()
     try:
