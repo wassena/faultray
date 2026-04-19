@@ -76,6 +76,10 @@ class FaultCollector:
         """Return the n most recent fault records. Handy for quick inspection."""
         return list(self._faults[-n:])
 
+    def filter_by_type(self, exc_type_name: str) -> List[FaultRecord]:
+        """Return all faults matching the given exception type name."""
+        return [f for f in self._faults if f.exc_type == exc_type_name]
+
     def clear(self) -> None:
         """Clear all stored fault records."""
         self._faults.clear()
