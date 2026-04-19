@@ -84,5 +84,12 @@ class FaultCollector:
         """Clear all stored fault records."""
         self._faults.clear()
 
+    def summary(self) -> dict:
+        """Return a count of faults grouped by exception type. Useful for a quick overview."""
+        counts: dict = {}
+        for fault in self._faults:
+            counts[fault.exc_type] = counts.get(fault.exc_type, 0) + 1
+        return counts
+
     def __len__(self) -> int:
         return len(self._faults)
