@@ -72,6 +72,10 @@ class FaultCollector:
         """Return all collected fault records."""
         return list(self._faults)
 
+    def latest(self, n: int = 10) -> List[FaultRecord]:
+        """Return the n most recent fault records. Handy for quick inspection."""
+        return list(self._faults[-n:])
+
     def clear(self) -> None:
         """Clear all stored fault records."""
         self._faults.clear()
