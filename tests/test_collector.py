@@ -106,4 +106,6 @@ def test_to_dict_timestamp_is_string():
         record = collector.capture(exc)
 
     d = record.to_dict()
-    assert isinstance(d["timestamp"], str), "timestamp in to_dict() should be an ISO-format string"
+    # timestamp must be a str so it can be passed directly to json.dumps without
+    # a custom encoder - learned this the hard way when logging to a JSON file
+    assert isinstance(d["timestamp"], str)
