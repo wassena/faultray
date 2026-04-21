@@ -98,7 +98,8 @@ def test_to_dict():
 
 
 def test_to_dict_timestamp_is_string():
-    # Handy when serializing to JSON - timestamp should be a string, not a datetime object
+    # Handy when serializing to JSON - timestamp should be a str, not a datetime object.
+    # Confirmed this matters when piping records into json.dumps() without a custom encoder.
     collector = FaultCollector()
     try:
         raise ValueError("check timestamp format")
@@ -106,6 +107,7 @@ def test_to_dict_timestamp_is_string():
         record = collector.capture(exc)
 
     d = record.to_dict()
-    # timestamp must be a str so it can be passed directly to json.dumps without
-    # a custom encoder - learned this the hard way when logging to a JSON file
-    assert isinstance(d["timestamp"], str)
+    # timestamp must be a str so json.dumps(d) works out of the box
+    assert isinstance(d["timestamp"], str), (
+        f"Expected timestamp to be str, got {type(d['timestamp']).__name__}"
+    )
