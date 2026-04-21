@@ -90,6 +90,3 @@ class FaultCollector:
         for fault in self._faults:
             counts[fault.exc_type] = counts.get(fault.exc_type, 0) + 1
         return counts
-
-    def __len__(self) -> int:
-        return len(self._faults)
